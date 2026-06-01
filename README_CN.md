@@ -29,7 +29,7 @@
 
 <p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
-  <img alt="macOS Linux Windows supported" src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
+  <img alt="MacOS Linux Windows supported" src="https://img.shields.io/badge/MacOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
@@ -72,16 +72,16 @@ Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CL
 
 ## 安装
 
-Kiri 当前已经发布 macOS、Linux x64、Windows x64 预编译 release artifacts。可以使用 npm、Homebrew 或 GitHub Release 安装脚本：
+Kiri 当前已经发布 MacOS、Linux x64、Windows x64 预编译 release artifacts。可以使用 npm、Homebrew 或 GitHub Release 安装脚本：
 
 ```bash
 # npm
 npm install -g @gaossr/kiri
 
-# Homebrew
+# MacOS 推荐使用 Homebrew 安装
 brew install gaossr/tap/kiri
 
-# macOS / Linux 安装脚本
+# MacOS / Linux 安装脚本
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh | bash
 ```
 
@@ -91,7 +91,7 @@ Windows 用户可以使用 PowerShell 安装：
 irm https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.ps1 | iex
 ```
 
-Homebrew 只覆盖 macOS。npm 和安装脚本使用预编译原生二进制，不会在用户机器上本地编译 Rust。
+MacOS 推荐使用 Homebrew 安装。npm 和安装脚本使用预编译原生二进制，不会在用户机器上本地编译 Rust。
 
 ## 命令
 
@@ -127,12 +127,12 @@ Kiri 在 `ports` 表格里会使用这些状态：
 
 | 平台 | 状态 |
 | --- | --- |
-| macOS arm64/x64 | 已支持 |
+| MacOS arm64/x64 | 已支持 |
 | Linux x64 | 已支持 |
 | Windows x64 | 已支持 |
 | Linux arm64 / Windows arm64 | 已规划 |
 
-在 macOS 上，Kiri 使用 `lsof`、`ps`、`tail`、macOS `log` 命令，并在 Docker 可用时读取容器端口映射。Linux 使用 `ss`、`ps`、`/proc` 和可选 Docker 元数据。Windows 使用 PowerShell/CIM 和 `Get-NetTCPConnection`；进程工作目录会尽量从可执行文件路径推断。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
+在 MacOS 上，Kiri 使用 `lsof`、`ps`、`tail`、MacOS `log` 命令，并在 Docker 可用时读取容器端口映射。Linux 使用 `ss`、`ps`、`/proc` 和可选 Docker 元数据。Windows 使用 PowerShell/CIM 和 `Get-NetTCPConnection`；进程工作目录会尽量从可执行文件路径推断。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
 
 `ports` 默认就会渲染 Kiri ASCII Logo 和 ANSI 终端输出，这是产品体验的一部分。`ports logs` 会为常见开发日志格式添加 ANSI 颜色，包括 Java、Python、Go、Node.js、logfmt 和 JSON 日志。对于从终端启动的服务，使用 `.dev-logs/service.log` 这类稳定日志文件，可以让 `ports logs <port|pid> -f` 从另一个进程持续跟随输出。
 
@@ -159,3 +159,7 @@ cargo run --bin ports -- ps
 - [更新日志](./CHANGELOG.md)
 - [贡献指南](./CONTRIBUTING.md)
 - [安全策略](./SECURITY.md)
+
+## 致谢
+
+Kiri 受到 [port-whisperer](https://github.com/LarsenCundric/port-whisperer) 的启发，尤其是“让本地开发端口更容易被看见、理解和清理”这个产品方向。

@@ -29,7 +29,7 @@
 
 <p align="center">
   <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
-  <img alt="macOS Linux Windows supported" src="https://img.shields.io/badge/macOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
+  <img alt="MacOS Linux Windows supported" src="https://img.shields.io/badge/MacOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
   <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
@@ -72,16 +72,16 @@ The default `ports` terminal view opens with a cute Kiri ASCII logo before the p
 
 ## Install
 
-Kiri ships prebuilt release artifacts for macOS, Linux x64, and Windows x64. Install with npm, Homebrew, or the GitHub Release install scripts:
+Kiri ships prebuilt release artifacts for MacOS, Linux x64, and Windows x64. Install with npm, Homebrew, or the GitHub Release install scripts:
 
 ```bash
 # npm
 npm install -g @gaossr/kiri
 
-# Homebrew
+# Recommended on MacOS with Homebrew
 brew install gaossr/tap/kiri
 
-# macOS / Linux install script
+# MacOS / Linux install script
 curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh | bash
 ```
 
@@ -91,7 +91,7 @@ Windows users can install with PowerShell:
 irm https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.ps1 | iex
 ```
 
-Homebrew is macOS-only. npm and the install scripts use prebuilt native binaries and do not compile Rust locally.
+On MacOS, Homebrew is the recommended install method. npm and the install scripts use prebuilt native binaries and do not compile Rust locally.
 
 ## Commands
 
@@ -127,12 +127,12 @@ In practice, `orphaned` means "this process is still running, but its original l
 
 | Platform | Status |
 | --- | --- |
-| macOS arm64/x64 | Supported |
+| MacOS arm64/x64 | Supported |
 | Linux x64 | Supported |
 | Windows x64 | Supported |
 | Linux arm64 / Windows arm64 | Planned |
 
-On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`; process working directories are best-effort from executable paths. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
+On MacOS, Kiri uses `lsof`, `ps`, `tail`, MacOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`; process working directories are best-effort from executable paths. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
 
 `ports` intentionally renders the Kiri ASCII logo and ANSI terminal output by default. `ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs. For services started through a terminal, a stable file-backed log such as `.dev-logs/service.log` lets `ports logs <port|pid> -f` follow output from another process.
 
@@ -159,3 +159,7 @@ cargo run --bin ports -- ps
 - [Changelog](./CHANGELOG.md)
 - [Contributing guide](./CONTRIBUTING.md)
 - [Security policy](./SECURITY.md)
+
+## Acknowledgements
+
+Kiri was inspired by [port-whisperer](https://github.com/LarsenCundric/port-whisperer), especially the idea of making local development ports easier to see, understand, and clean up.
