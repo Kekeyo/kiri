@@ -7,8 +7,21 @@ use chrono::{Local, NaiveDateTime, TimeZone};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ProcessScan {
+    pub processes: Vec<ProcessListInfo>,
+    pub warnings: Vec<String>,
+}
+
 pub fn get_all_processes(show_all: bool) -> Vec<ProcessListInfo> {
-    let entries = platform::get_all_processes_raw();
+    scan_all_processes(show_all).processes
+}
+
+pub fn scan_all_processes(show_all: bool) -> ProcessScan {
+    let (entries, warnings) = match platform::get_all_processes_raw_checked() {
+        Ok(entries) => (entries, Vec::new()),
+        Err(error) => (Vec::new(), vec![error.render_warning()]),
+    };
     let cwd_map = cwd_for_non_docker_processes(&entries);
     let mut processes = enrich_process_entries(entries, &cwd_map);
 
@@ -17,8 +30,11 @@ pub fn get_all_processes(show_all: bool) -> Vec<ProcessListInfo> {
         processes = collapse_docker_processes(processes);
     }
 
-    sort_processes_by_cpu(&mut processes);
-    processes
+    sort_processes_by_memory(&mut processes);
+    ProcessScan {
+        processes,
+        warnings,
+    }
 }
 
 fn cwd_for_non_docker_processes(entries: &[RawProcessEntry]) -> HashMap<u32, PathBuf> {
@@ -107,13 +123,8 @@ pub fn collapse_docker_processes(processes: Vec<ProcessListInfo>) -> Vec<Process
     non_docker
 }
 
-pub fn sort_processes_by_cpu(processes: &mut [ProcessListInfo]) {
-    processes.sort_by(|a, b| {
-        b.cpu
-            .partial_cmp(&a.cpu)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| a.pid.cmp(&b.pid))
-    });
+pub fn sort_processes_by_memory(processes: &mut [ProcessListInfo]) {
+    processes.sort_by(|a, b| b.rss_kb.cmp(&a.rss_kb).then_with(|| a.pid.cmp(&b.pid)));
 }
 
 pub fn summarize_command(command: &str, process_name: &str) -> String {
@@ -263,14 +274,14 @@ mod tests {
     }
 
     #[test]
-    fn sorts_processes_by_cpu_descending_then_pid() {
+    fn sorts_processes_by_memory_descending_then_pid() {
         let mut processes = vec![
             process_info(12, "node", 1.0, 1024),
-            process_info(10, "python3", 2.0, 1024),
-            process_info(11, "java", 2.0, 1024),
+            process_info(10, "python3", 2.0, 4096),
+            process_info(11, "java", 1.0, 4096),
         ];
 
-        sort_processes_by_cpu(&mut processes);
+        sort_processes_by_memory(&mut processes);
 
         assert_eq!(
             processes

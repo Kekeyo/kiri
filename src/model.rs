@@ -7,10 +7,11 @@ pub struct RawListenerEntry {
     pub process_name: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RawProcessInfo {
     pub ppid: u32,
     pub stat: String,
+    pub cpu: f64,
     pub rss_kb: u64,
     pub lstart: String,
     pub command: String,
@@ -56,7 +57,7 @@ impl ProcessStatus {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PortInfo {
     pub port: u16,
     pub process: ProcessInfo,
@@ -66,6 +67,7 @@ pub struct PortInfo {
     pub framework: Option<String>,
     pub docker_image: Option<String>,
     pub docker_container: Option<String>,
+    pub cpu: Option<f64>,
     pub memory: Option<String>,
     pub uptime: Option<String>,
     pub start_time: Option<String>,
@@ -104,6 +106,7 @@ impl From<RawListenerEntry> for PortInfo {
             framework: None,
             docker_image: None,
             docker_container: None,
+            cpu: None,
             memory: None,
             uptime: None,
             start_time: None,

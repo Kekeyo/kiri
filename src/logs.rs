@@ -2,10 +2,14 @@ use crate::kill::{resolve_target, SystemResolver};
 use crate::platform;
 use chrono::{Local, NaiveDateTime, TimeZone};
 use std::collections::HashSet;
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::{Duration, SystemTime};
+use std::thread::sleep;
+use std::time::{Duration, Instant, SystemTime};
+
+const LSOF_TIMEOUT: Duration = Duration::from_secs(2);
+const LSOF_MAX_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogRequest {
@@ -231,21 +235,15 @@ pub fn get_process_log_files(pid: u32) -> Vec<LogFile> {
     let mut pipe_ids = HashSet::new();
 
     if cfg!(any(target_os = "macos", target_os = "linux")) {
-        if let Ok(output) = Command::new("lsof").args(["-p", &pid.to_string()]).output() {
-            if output.status.success() {
-                let raw = String::from_utf8_lossy(&output.stdout);
-                current_files.extend(parse_lsof_log_files(&raw));
-                pipe_ids = parse_lsof_pipe_ids(&raw);
-            }
+        if let Ok(raw) = run_lsof_limited(&["-p".to_string(), pid.to_string()]) {
+            current_files.extend(parse_lsof_log_files(&raw));
+            pipe_ids = parse_lsof_pipe_ids(&raw);
         }
     }
 
     if !pipe_ids.is_empty() {
-        if let Ok(output) = Command::new("lsof").output() {
-            if output.status.success() {
-                let raw = String::from_utf8_lossy(&output.stdout);
-                current_files.extend(parse_pipe_writer_log_files(&raw, &pipe_ids));
-            }
+        if let Ok(raw) = run_lsof_limited(&[]) {
+            current_files.extend(parse_pipe_writer_log_files(&raw, &pipe_ids));
         }
     }
 
@@ -362,27 +360,116 @@ fn get_stdio_stream_diagnostic(pid: u32) -> Option<String> {
         return None;
     }
 
-    let output = Command::new("lsof")
-        .args(["-p", &pid.to_string()])
-        .output()
-        .ok()?;
-    if !output.status.success() {
-        return None;
-    }
-
-    let target_raw = String::from_utf8_lossy(&output.stdout);
+    let target_raw = match run_lsof_limited(&["-p".to_string(), pid.to_string()]) {
+        Ok(raw) => raw,
+        Err(error) => return Some(lsof_inspection_failed_tip(error)),
+    };
     let pipe_ids = parse_lsof_pipe_ids(&target_raw);
     if pipe_ids.is_empty() {
         return stdio_stream_log_tip(&target_raw, None);
     }
 
-    let output = Command::new("lsof").output().ok()?;
-    if !output.status.success() {
-        return stdio_stream_log_tip(&target_raw, None);
+    let all_raw = run_lsof_limited(&[]).ok();
+    stdio_stream_log_tip(&target_raw, all_raw.as_deref())
+}
+
+fn run_lsof_limited(args: &[String]) -> Result<String, LimitedCommandError> {
+    run_command_stdout_limited("lsof", args, LSOF_TIMEOUT, LSOF_MAX_OUTPUT_BYTES)
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum LimitedCommandError {
+    Spawn,
+    Status,
+    Timeout,
+    OutputTooLarge,
+}
+
+fn lsof_inspection_failed_tip(error: LimitedCommandError) -> String {
+    format!(
+        "Kiri could not inspect stdout/stderr with lsof: {}.\n\
+Without the process file descriptors, Kiri cannot safely decide whether output is a replayable log file, a pipe, or a terminal/PTY.\n\
+Restart the service with file-backed output, for example:\n  \
+mkdir -p .dev-logs && <your start command> 2>&1 | tee .dev-logs/service.log\n\
+Then run:\n  ports logs <port|pid> -f\n",
+        limited_command_error_message(error)
+    )
+}
+
+fn limited_command_error_message(error: LimitedCommandError) -> &'static str {
+    match error {
+        LimitedCommandError::Spawn => "command could not be started",
+        LimitedCommandError::Status => "command exited with an error",
+        LimitedCommandError::Timeout => "command timed out",
+        LimitedCommandError::OutputTooLarge => "command output was too large",
+    }
+}
+
+fn run_command_stdout_limited(
+    command: &str,
+    args: &[String],
+    timeout: Duration,
+    max_output_bytes: usize,
+) -> Result<String, LimitedCommandError> {
+    let mut child = Command::new(command)
+        .args(args)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .map_err(|_| LimitedCommandError::Spawn)?;
+
+    let Some(mut stdout) = child.stdout.take() else {
+        let _ = child.kill();
+        let _ = child.wait();
+        return Err(LimitedCommandError::Spawn);
+    };
+
+    let reader = std::thread::spawn(move || {
+        let mut output = Vec::new();
+        let mut truncated = false;
+        let mut buffer = [0_u8; 8192];
+        loop {
+            match stdout.read(&mut buffer) {
+                Ok(0) => break,
+                Ok(read) => {
+                    let remaining = max_output_bytes.saturating_sub(output.len());
+                    if remaining > 0 {
+                        output.extend_from_slice(&buffer[..read.min(remaining)]);
+                    }
+                    if read > remaining {
+                        truncated = true;
+                    }
+                }
+                Err(_) => break,
+            }
+        }
+        (output, truncated)
+    });
+
+    let start = Instant::now();
+    let status = loop {
+        if let Some(status) = child.try_wait().map_err(|_| LimitedCommandError::Status)? {
+            break status;
+        }
+        if start.elapsed() >= timeout {
+            let _ = child.kill();
+            let _ = child.wait();
+            let _ = reader.join();
+            return Err(LimitedCommandError::Timeout);
+        }
+        sleep(Duration::from_millis(10));
+    };
+
+    let (output, truncated) = reader.join().map_err(|_| LimitedCommandError::Status)?;
+    if truncated {
+        return Err(LimitedCommandError::OutputTooLarge);
+    }
+    if !status.success() {
+        return Err(LimitedCommandError::Status);
     }
 
-    let all_raw = String::from_utf8_lossy(&output.stdout);
-    stdio_stream_log_tip(&target_raw, Some(&all_raw))
+    Ok(String::from_utf8_lossy(&output).to_string())
 }
 
 fn stdio_stream_log_tip(target_raw: &str, all_lsof_raw: Option<&str>) -> Option<String> {
@@ -461,7 +548,7 @@ fn pipe_reader_log_tip(readers: &[PipeReader]) -> Option<String> {
     Some(format!(
         "{attached_to}\
 Kiri cannot tail an already-consumed pipe because it is not replayable. Restart the service with file-backed output, for example:\n  \
-<your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
+mkdir -p .dev-logs && <your start command> 2>&1 | tee .dev-logs/service.log\n\
 Then run:\n  ports logs <port|pid> -f\n"
     ))
 }
@@ -469,7 +556,7 @@ Then run:\n  ports logs <port|pid> -f\n"
 fn generic_pipe_log_tip() -> String {
     "stdout/stderr is attached to a pipe and is not replayable as a log file.\n\
 Kiri cannot read historical output after another process has consumed that pipe. Restart the service with file-backed output, for example:\n  \
-<your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
+mkdir -p .dev-logs && <your start command> 2>&1 | tee .dev-logs/service.log\n\
 Then run:\n  ports logs <port|pid> -f\n"
         .to_string()
 }
@@ -505,7 +592,7 @@ fn terminal_stdio_log_tip(devices: &[String]) -> String {
         "stdout/stderr is attached to terminal/PTY ({device_list}) and is not replayable as a log file.\n\
 Kiri cannot read historical output from another terminal/PTY after it has been rendered by the terminal UI. If this process was launched from Codex Shell, Codex can show its live terminal buffer, but ports cannot tail that buffer from a separate process.\n\
 Restart the service with file-backed output, for example:\n  \
-<your start command> 2>&1 | tee /private/tmp/kiri-process.log\n\
+mkdir -p .dev-logs && <your start command> 2>&1 | tee .dev-logs/service.log\n\
 Then run:\n  ports logs <port|pid> -f\n"
     )
 }
@@ -1648,6 +1735,7 @@ java    75495 gaossr    2u   CHR   16,2   0t11281 3353 /dev/ttys002
         assert!(diagnostic.contains("/dev/ttys002"));
         assert!(diagnostic.contains("not replayable"));
         assert!(diagnostic.contains("tee"));
+        assert!(diagnostic.contains(".dev-logs/service.log"));
         assert!(!diagnostic.contains("system log"));
     }
 
@@ -1664,6 +1752,7 @@ java    68388 user    2   PIPE 0xaaaa    16384      ->0xbbbb
         assert!(diagnostic.contains("stdout/stderr is attached to a pipe"));
         assert!(diagnostic.contains("not replayable"));
         assert!(diagnostic.contains("tee"));
+        assert!(diagnostic.contains(".dev-logs/service.log"));
         assert!(!diagnostic.contains("system log"));
     }
 
@@ -1698,7 +1787,61 @@ tail    98725 user    3r   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0
         assert!(diagnostic.contains("Codex"));
         assert!(diagnostic.contains("already-consumed pipe"));
         assert!(diagnostic.contains("tee"));
+        assert!(diagnostic.contains(".dev-logs/service.log"));
         assert!(!diagnostic.contains(".lock"));
+    }
+
+    #[test]
+    fn lsof_inspection_failure_gets_actionable_diagnostic_without_system_log_tip() {
+        let diagnostic = lsof_inspection_failed_tip(LimitedCommandError::Timeout);
+
+        assert!(diagnostic.contains("could not inspect stdout/stderr with lsof"));
+        assert!(diagnostic.contains("command timed out"));
+        assert!(diagnostic.contains(".dev-logs/service.log"));
+        assert!(!diagnostic.contains("system log"));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn limited_command_returns_stdout_when_within_budget() {
+        let args = strings(["-c", "printf 'hello'"]);
+
+        let output = run_command_stdout_limited("sh", &args, Duration::from_secs(1), 1024).unwrap();
+
+        assert_eq!(output, "hello");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn limited_command_fails_when_output_exceeds_budget() {
+        let args = strings(["-c", "printf '0123456789'"]);
+
+        let error = run_command_stdout_limited("sh", &args, Duration::from_secs(1), 4)
+            .expect_err("oversized output should fail");
+
+        assert_eq!(error, LimitedCommandError::OutputTooLarge);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn limited_command_treats_nonzero_exit_as_failure() {
+        let args = strings(["-c", "printf 'not a valid lsof result'; exit 7"]);
+
+        let error = run_command_stdout_limited("sh", &args, Duration::from_secs(1), 1024)
+            .expect_err("non-zero command status should fail");
+
+        assert_eq!(error, LimitedCommandError::Status);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn limited_command_times_out_instead_of_hanging() {
+        let args = strings(["-c", "sleep 1"]);
+
+        let error = run_command_stdout_limited("sh", &args, Duration::from_millis(20), 1024)
+            .expect_err("slow command should time out");
+
+        assert_eq!(error, LimitedCommandError::Timeout);
     }
 
     #[test]

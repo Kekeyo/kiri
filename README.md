@@ -12,7 +12,7 @@
 <br />
 
 <p align="center">
-  <a href="https://github.com/GaoSSR/kiri">
+  <a href="https://github.com/GaoSSR/Kiri">
     <picture>
       <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
       <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
@@ -38,9 +38,13 @@
 
 Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
 
+Run `ports` to see a focused local development service overview: port, process, PID, memory usage, project name, detected framework, uptime, and health status.
+
 <p align="center">
   <img src="assets/readme/ports-overview.png" alt="Kiri ports overview" width="880">
 </p>
+
+Run `ports logs <port|pid> -f` to follow the matched process logs. Kiri keeps dense framework output readable with ANSI colors for timestamps, log levels, process IDs, trace IDs, source classes, HTTP values, and structured fields.
 
 <p align="center">
   <img src="assets/readme/logs-follow.png" alt="Kiri colored log following" width="880">
@@ -48,7 +52,7 @@ Kiri is a high-performance CLI for managing local development ports, powered by 
 
 ## Meet Kiri
 
-The default `ports` terminal view opens with a compact Kiri companion before the port table:
+The default `ports` terminal view opens with a cute Kiri companion before the port table:
 
 ```text
       .-~~~~-.
@@ -61,6 +65,7 @@ The default `ports` terminal view opens with a compact Kiri companion before the
 ## Core Usage
 
 - **View local development services and their ports:** `ports`
+- **View developer background processes:** `ports ps` shows development-related processes that may not listen on a port, such as MCP Server processes started by Codex, Claude Code, or other AI coding tools. Use it when you want to see memory usage or find long-running tool processes outside the port table.
 - **Quickly kill the process / PID behind a port:** `ports kill <port>`
 - **Follow logs for the process listening on a port:** `ports logs <port|pid> -f`
 - **View all ports:** `ports --all`
@@ -77,13 +82,13 @@ npm install -g @gaossr/kiri
 brew install gaossr/tap/kiri
 
 # macOS / Linux install script
-curl -fsSL https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh | bash
 ```
 
 Windows users can install with PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/GaoSSR/kiri/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.ps1 | iex
 ```
 
 Homebrew is macOS-only. npm and the install scripts use prebuilt native binaries and do not compile Rust locally.
@@ -94,7 +99,7 @@ Homebrew is macOS-only. npm and the install scripts use prebuilt native binaries
 ports                       # view local development services and their ports
 ports --all                 # show all listening ports
 ports <port>                # show details for one port
-ports ps                    # show developer-related running processes
+ports ps                    # show developer background processes, including MCP Server processes that do not listen on a port
 ports ps --all              # show all processes
 ports logs <port|pid>          # show recent logs and exit
 ports logs <port|pid> -f       # follow logs for the process listening on a port
@@ -108,6 +113,16 @@ ports kill 3000-3010        # terminate listeners across a range
 ports kill --force 3000     # use SIGKILL instead of SIGTERM
 ```
 
+## Status Labels
+
+Kiri uses these status labels in the `ports` table:
+
+- `healthy`: the process is running and still has a normal parent process.
+- `orphaned`: the process is still alive and may still be listening on a port, but the parent process that started it has already exited. This is an orphan process, not a zombie process.
+- `zombie`: the process has already exited, but the operating system still has a leftover process record that has not been reaped by its parent.
+
+In practice, `orphaned` means "this process is still running, but its original launcher is gone." That can happen after closing a terminal, IDE task, script runner, Codex session, or Claude Code session while a child server process keeps running.
+
 ## Platform Support
 
 | Platform | Status |
@@ -117,9 +132,11 @@ ports kill --force 3000     # use SIGKILL instead of SIGTERM
 | Windows x64 | Supported |
 | Linux arm64 / Windows arm64 | Planned |
 
-On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
+On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`; process working directories are best-effort from executable paths. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
 
-`ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs.
+`ports` intentionally renders the Kiri companion and ANSI terminal output by default. `ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs. For services started through a terminal, a stable file-backed log such as `.dev-logs/service.log` lets `ports logs <port|pid> -f` follow output from another process.
+
+The default `ports` table stays focused on developer ports and includes `Mem`, so day-to-day checks do not require the broader `ports ps` process view.
 
 ## Development
 
@@ -128,6 +145,10 @@ For maintainers and contributors working from source:
 ```bash
 cargo fmt
 cargo test
+cargo clippy --all-targets -- -D warnings
+cargo build --release --bin ports
+scripts/perf-smoke.sh
+scripts/verify-release.sh v0.1.22
 cargo run --bin ports
 cargo run --bin ports -- --all
 cargo run --bin ports -- ps

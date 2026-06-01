@@ -15,66 +15,57 @@ const BORDER_GRAY: &str = "\x1b[38;2;163;163;163m";
 const BORDER_BLACK: &str = "\x1b[38;2;0;0;0m";
 const DOT_GREEN: &str = "\x1b[38;2;34;197;94m";
 
-const DEFAULT_TERMINAL_WIDTH: usize = 100;
+const DEFAULT_TERMINAL_WIDTH: usize = 112;
 const MIN_TERMINAL_WIDTH_FOR_KIRI_SPRITE: usize = 48;
-const COLUMN_COUNT: usize = 7;
+const COLUMN_COUNT: usize = 8;
 const PORT_COL: usize = 0;
 const PROCESS_COL: usize = 1;
 #[cfg(test)]
 const PID_COL: usize = 2;
-const PROJECT_COL: usize = 3;
-const FRAMEWORK_COL: usize = 4;
-const UPTIME_COL: usize = 5;
-const STATUS_COL: usize = 6;
+const MEMORY_COL: usize = 3;
+const PROJECT_COL: usize = 4;
+const FRAMEWORK_COL: usize = 5;
+const UPTIME_COL: usize = 6;
+const STATUS_COL: usize = 7;
 const BORDER_OVERHEAD: usize = 1 + COLUMN_COUNT * 3;
 
 const HEADERS: [&str; COLUMN_COUNT] = [
     "Port",
     "Process",
     "PID",
+    "Mem",
     "Project",
     "Framework",
     "Uptime",
     "Status",
 ];
 
-const PROCESS_COLUMN_COUNT: usize = 8;
+const PROCESS_COLUMN_COUNT: usize = 6;
 const PROCESS_PID_COL: usize = 0;
 const PROCESS_NAME_COL: usize = 1;
-const PROCESS_CPU_COL: usize = 2;
-const PROCESS_MEMORY_COL: usize = 3;
-const PROCESS_PROJECT_COL: usize = 4;
-const PROCESS_FRAMEWORK_COL: usize = 5;
-const PROCESS_UPTIME_COL: usize = 6;
-const PROCESS_DESCRIPTION_COL: usize = 7;
+const PROCESS_MEMORY_COL: usize = 2;
+const PROCESS_FRAMEWORK_COL: usize = 3;
+const PROCESS_UPTIME_COL: usize = 4;
+const PROCESS_DESCRIPTION_COL: usize = 5;
 const PROCESS_BORDER_OVERHEAD: usize = 1 + PROCESS_COLUMN_COUNT * 3;
-const PROCESS_HEADERS: [&str; PROCESS_COLUMN_COUNT] = [
-    "PID",
-    "Process",
-    "CPU%",
-    "Mem",
-    "Project",
-    "Framework",
-    "Uptime",
-    "What",
-];
+const PROCESS_HEADERS: [&str; PROCESS_COLUMN_COUNT] =
+    ["PID", "Process", "Mem", "Framework", "Uptime", "What"];
 
 const COLUMN_SPECS: [ColumnSpec; COLUMN_COUNT] = [
-    ColumnSpec::stable(7),
+    ColumnSpec::stable(5),
     ColumnSpec::flex(7, 5, 3),
     ColumnSpec::stable(5),
+    ColumnSpec::flex(8, 3, 4),
     ColumnSpec::flex(7, 4, 1),
     ColumnSpec::flex(12, 4, 2),
     ColumnSpec::stable(6),
-    ColumnSpec::stable(9),
+    ColumnSpec::flex(9, 8, 5),
 ];
 
 const PROCESS_COLUMN_SPECS: [ColumnSpec; PROCESS_COLUMN_COUNT] = [
     ColumnSpec::stable(5),
     ColumnSpec::flex(7, 5, 3),
-    ColumnSpec::stable(5),
     ColumnSpec::stable(8),
-    ColumnSpec::flex(7, 4, 2),
     ColumnSpec::flex(12, 4, 2),
     ColumnSpec::stable(6),
     ColumnSpec::flex(8, 5, 1),
@@ -311,6 +302,15 @@ fn render_port_detail_with_width(port: &PortInfo, terminal_width: usize) -> Stri
     push_wrapped_field(&mut output, "Status", port.status.as_str(), terminal_width);
     push_wrapped_field(
         &mut output,
+        "CPU",
+        &port
+            .cpu
+            .map(|cpu| format!("{cpu:.1}%"))
+            .unwrap_or_else(|| "-".to_string()),
+        terminal_width,
+    );
+    push_wrapped_field(
+        &mut output,
         "Command",
         if port.process.command.is_empty() {
             "-"
@@ -396,6 +396,7 @@ fn port_rows(ports: &[PortInfo]) -> Vec<TableRow> {
                 port.port.to_string(),
                 port.process.name.clone(),
                 port.process.pid.to_string(),
+                port.memory.clone().unwrap_or_else(|| "-".to_string()),
                 port.project_name.clone().unwrap_or_else(|| "-".to_string()),
                 port.framework.clone().unwrap_or_else(|| "-".to_string()),
                 port.uptime.clone().unwrap_or_else(|| "-".to_string()),
@@ -412,12 +413,7 @@ fn process_rows(processes: &[ProcessListInfo]) -> Vec<ProcessTableRow> {
             cells: [
                 process.pid.to_string(),
                 process.process_name.clone(),
-                format!("{:.1}", process.cpu),
                 process.memory.clone().unwrap_or_else(|| "-".to_string()),
-                process
-                    .project_name
-                    .clone()
-                    .unwrap_or_else(|| "-".to_string()),
                 process.framework.clone().unwrap_or_else(|| "-".to_string()),
                 process.uptime.clone().unwrap_or_else(|| "-".to_string()),
                 process.description.clone(),
@@ -714,6 +710,7 @@ fn style_table_cell(index: usize, value: &str, padded: &str) -> String {
     match index {
         PORT_COL => colorize_bold(padded, BLUE),
         PROCESS_COL => colorize(padded, PURPLE),
+        MEMORY_COL => style_memory(value, padded),
         PROJECT_COL => {
             if value == "-" {
                 colorize(padded, BORDER_GRAY)
@@ -734,34 +731,34 @@ fn style_table_cell(index: usize, value: &str, padded: &str) -> String {
     }
 }
 
+fn style_cpu(value: &str, padded: &str) -> String {
+    if value == "-" {
+        return colorize(padded, BORDER_GRAY);
+    }
+
+    let cpu = value.parse::<f64>().unwrap_or_default();
+    if cpu > 25.0 {
+        colorize(padded, ROSE)
+    } else if cpu > 5.0 {
+        colorize(padded, ORANGE)
+    } else {
+        colorize(padded, LIME)
+    }
+}
+
+fn style_memory(value: &str, padded: &str) -> String {
+    if value == "-" {
+        colorize(padded, BORDER_GRAY)
+    } else {
+        colorize(padded, GREEN)
+    }
+}
+
 fn style_process_cell(index: usize, value: &str, padded: &str) -> String {
     match index {
         PROCESS_PID_COL => padded.to_string(),
         PROCESS_NAME_COL => colorize(padded, PURPLE),
-        PROCESS_CPU_COL => {
-            let cpu = value.parse::<f64>().unwrap_or_default();
-            if cpu > 25.0 {
-                colorize(padded, ROSE)
-            } else if cpu > 5.0 {
-                colorize(padded, ORANGE)
-            } else {
-                colorize(padded, LIME)
-            }
-        }
-        PROCESS_MEMORY_COL => {
-            if value == "-" {
-                colorize(padded, BORDER_GRAY)
-            } else {
-                colorize(padded, GREEN)
-            }
-        }
-        PROCESS_PROJECT_COL => {
-            if value == "-" {
-                colorize(padded, BORDER_GRAY)
-            } else {
-                colorize(padded, LIME)
-            }
-        }
+        PROCESS_MEMORY_COL => style_memory(value, padded),
         PROCESS_FRAMEWORK_COL => style_framework(value, padded),
         PROCESS_UPTIME_COL => {
             if value == "-" {
@@ -884,6 +881,8 @@ fn append_ellipsis(value: &str, width: usize) -> String {
 fn style_detail_value(label: &str, value: &str) -> String {
     match label {
         "Status" => style_status(value, value),
+        "CPU" => style_cpu(value.trim_end_matches('%'), value),
+        "Memory" => style_memory(value, value),
         "Project" | "Container" => {
             if value == "-" {
                 colorize(value, BORDER_GRAY)
@@ -1063,7 +1062,7 @@ mod tests {
     #[test]
     fn column_widths_use_ideal_widths_when_terminal_is_wide_enough() {
         let rows = vec![table_row([
-            "5173", "node", "1296", "frontend", "Vite", "14h 2m", "healthy",
+            "5173", "node", "1296", "12.1 MB", "frontend", "Vite", "14h 2m", "healthy",
         ])];
 
         let widths = calculate_column_widths(&rows, 160);
@@ -1079,6 +1078,7 @@ mod tests {
             "5173",
             "very-long-node-wrapper",
             "1296",
+            "512.1 MB",
             "project-name-that-is-far-too-long-for-a-narrow-terminal",
             "FrameworkNameThatShouldShrink",
             "14h 2m",
@@ -1100,6 +1100,7 @@ mod tests {
             ":65535",
             "node",
             "99999",
+            "12.1 MB",
             "long-project-name-that-can-shrink",
             "Vite",
             "12d 4h",
@@ -1110,6 +1111,7 @@ mod tests {
 
         assert!(widths[PORT_COL] >= 6);
         assert!(widths[PID_COL] >= 5);
+        assert!(widths[MEMORY_COL] >= 3);
         assert!(widths[UPTIME_COL] >= 6);
         assert!(widths[STATUS_COL] >= 7);
     }
@@ -1243,11 +1245,13 @@ mod tests {
 
         let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
 
-        assert!(output.contains("│  Port   │"));
-        assert!(output.contains("│ Process "));
-        assert!(output.contains("│  Framework   │"));
+        assert!(output.contains("Port"));
+        assert!(output.contains("Process"));
+        assert!(output.contains("Mem"));
+        assert!(output.contains("Framework"));
+        assert!(!output.contains("CPU%"));
         assert!(!output.contains("│ PORT "));
-        assert!(output.contains("│  5173   │"));
+        assert!(output.contains("5173"));
         assert!(!output.contains(":5173"));
     }
 
@@ -1295,13 +1299,15 @@ mod tests {
 
         let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
 
-        assert!(output.contains("│  PID  │"));
-        assert!(output.contains("│  Framework   │"));
-        assert!(output.contains("│  Status   │"));
-        assert!(output.contains("│ 1296  │"));
-        assert!(output.contains("│  5173   │"));
-        assert!(output.contains("│  node   │"));
-        assert!(output.contains("│  healthy  │"));
+        assert!(output.contains("PID"));
+        assert!(output.contains("Mem"));
+        assert!(output.contains("Framework"));
+        assert!(output.contains("Status"));
+        assert!(output.contains("1296"));
+        assert!(output.contains("12.1 MB"));
+        assert!(output.contains("5173"));
+        assert!(output.contains("node"));
+        assert!(output.contains("healthy"));
     }
 
     #[test]
@@ -1366,8 +1372,8 @@ mod tests {
 
         let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
 
-        assert!(output.contains("│  55433  │"));
-        assert!(output.contains("│  PostgreSQL  │"));
+        assert!(output.contains("55433"));
+        assert!(output.contains("PostgreSQL"));
     }
 
     #[test]
@@ -1420,7 +1426,7 @@ mod tests {
         let output = render_port_table_with_width(&[port], true, 100);
 
         assert!(
-            output.contains("\x1b[1m\x1b[38;2;59;130;246m Port "),
+            output.contains("\x1b[1m\x1b[38;2;59;130;246mPort"),
             "header should use bold bright blue"
         );
     }
@@ -1467,6 +1473,45 @@ mod tests {
         let output = render_port_table_with_width(&[port], true, 100);
 
         assert!(output.contains("\x1b[38;2;139;92;246m node"));
+    }
+
+    #[test]
+    fn port_table_shows_memory_without_using_process_view() {
+        let port = sample_port("frontend", "node vite");
+
+        let output = strip_ansi_codes(&render_port_table_with_width(&[port], true, 100));
+
+        assert!(output.contains("Mem"));
+        assert!(output.contains("12.1 MB"));
+        assert!(!output.contains("CPU%"));
+        assert!(!output.contains("What"));
+    }
+
+    #[test]
+    fn process_table_shows_memory_without_cpu_or_project_columns() {
+        let process = ProcessListInfo {
+            pid: 1296,
+            process_name: "node".to_string(),
+            command: "node server.js".to_string(),
+            description: "server.js".to_string(),
+            cpu: 9.9,
+            rss_kb: 12_345,
+            memory: Some("12.1 MB".to_string()),
+            cwd: Some(PathBuf::from("/Users/dev/project")),
+            project_name: Some("project".to_string()),
+            framework: Some("Node.js".to_string()),
+            uptime: Some("14h 2m".to_string()),
+        };
+
+        let output = strip_ansi_codes(&render_process_table_with_width(&[process], true, 100));
+
+        assert!(output.contains("Mem"));
+        assert!(output.contains("12.1 MB"));
+        assert!(output.contains("What"));
+        assert!(!output.contains("CPU%"));
+        assert!(!output.contains("Project"));
+        assert!(!output.contains("project"));
+        assert!(!output.contains("9.9"));
     }
 
     #[test]
@@ -1623,6 +1668,7 @@ mod tests {
             framework: Some("Vite".to_string()),
             docker_image: None,
             docker_container: None,
+            cpu: Some(1.2),
             memory: Some("12.1 MB".to_string()),
             uptime: Some("14h 2m".to_string()),
             start_time: None,

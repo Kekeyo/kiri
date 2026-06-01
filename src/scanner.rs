@@ -7,20 +7,52 @@ use chrono::{Local, NaiveDateTime, TimeZone};
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PortScan {
+    pub ports: Vec<PortInfo>,
+    pub warnings: Vec<String>,
+}
+
 pub fn get_listening_ports(show_all: bool) -> Vec<PortInfo> {
-    let ports = collect_ports();
-    ports
-        .into_iter()
-        .filter(|info| show_all || is_developer_process(&info.process.name, &info.process.command))
-        .collect()
+    scan_listening_ports(show_all).ports
+}
+
+pub fn scan_listening_ports(show_all: bool) -> PortScan {
+    let mut scan = collect_ports();
+    scan.ports
+        .retain(|info| show_all || is_developer_process(&info.process.name, &info.process.command));
+    scan
 }
 
 pub fn get_port_details(port: u16) -> Option<PortInfo> {
-    collect_ports().into_iter().find(|info| info.port == port)
+    scan_port_details(port).ports.into_iter().next()
 }
 
-fn collect_ports() -> Vec<PortInfo> {
-    let entries = platform::get_listening_ports_raw();
+pub fn scan_port_details(port: u16) -> PortScan {
+    match platform::get_listener_on_port_raw_checked(port) {
+        Ok(Some(entry)) => collect_entries(vec![entry], Vec::new()),
+        Ok(None) => PortScan {
+            ports: Vec::new(),
+            warnings: Vec::new(),
+        },
+        Err(error) => PortScan {
+            ports: Vec::new(),
+            warnings: vec![error.render_warning()],
+        },
+    }
+}
+
+fn collect_ports() -> PortScan {
+    match platform::get_listening_ports_raw_checked() {
+        Ok(entries) => collect_entries(entries, Vec::new()),
+        Err(error) => PortScan {
+            ports: Vec::new(),
+            warnings: vec![error.render_warning()],
+        },
+    }
+}
+
+fn collect_entries(entries: Vec<RawListenerEntry>, warnings: Vec<String>) -> PortScan {
     let pids = unique_pids(&entries);
     let process_map = platform::batch_process_info(&pids);
     let cwd_map = platform::batch_cwd(&pids);
@@ -34,7 +66,10 @@ fn collect_ports() -> Vec<PortInfo> {
         HashMap::new()
     };
 
-    enrich_entries(entries, &process_map, &cwd_map, &docker_map)
+    PortScan {
+        ports: enrich_entries(entries, &process_map, &cwd_map, &docker_map),
+        warnings,
+    }
 }
 
 fn enrich_entries(
@@ -53,6 +88,7 @@ fn enrich_entries(
                 info.process.ppid = Some(process.ppid);
                 info.process.stat = Some(process.stat.clone());
                 info.process.rss_kb = Some(process.rss_kb);
+                info.cpu = Some(process.cpu);
                 info.start_time = Some(process.lstart.clone());
 
                 if process.stat.contains('Z') {
@@ -243,6 +279,7 @@ mod tests {
             RawProcessInfo {
                 ppid: 1,
                 stat: "S".to_string(),
+                cpu: 0.5,
                 rss_kb: 2048,
                 lstart: "May 22 09:00:00 2026".to_string(),
                 command: "/Applications/Docker.app/Contents/MacOS/com.docker.backend".to_string(),
@@ -282,6 +319,7 @@ mod tests {
             RawProcessInfo {
                 ppid: 100,
                 stat: "S".to_string(),
+                cpu: 1.2,
                 rss_kb: 2048,
                 lstart: "May 22 09:00:00 2026".to_string(),
                 command: "pnpm vite --host 0.0.0.0".to_string(),
@@ -294,6 +332,7 @@ mod tests {
         let info = &ports[0];
 
         assert_eq!(info.framework.as_deref(), Some("Vite"));
+        assert_eq!(info.cpu, Some(1.2));
     }
 
     #[test]

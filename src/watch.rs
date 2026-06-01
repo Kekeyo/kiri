@@ -8,7 +8,7 @@ use std::sync::{
 use std::thread::sleep;
 use std::time::Duration;
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WatchEvent {
     New(Box<PortInfo>),
     Removed(u16),

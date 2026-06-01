@@ -6,6 +6,30 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.22 - 2026-06-01
+
+### Added
+
+- Added memory usage to the default `ports` table so local development service
+  checks show resource usage without switching to `ports ps`.
+- Added README copy that explains the default `ports` overview and colorful
+  `ports logs <port|pid> -f` output.
+
+### Changed
+
+- Updated the GitHub repository display name and repository URLs to
+  `GaoSSR/Kiri`.
+- Replaced the README `ports` screenshot with the current Kiri terminal view.
+- Kept `ports ps` focused on developer background processes by showing memory
+  usage without the noisy `CPU%` and empty `Project` columns.
+
+### Fixed
+
+- Improved current log discovery so Kiri prefers real file-backed logs for the
+  target process and avoids stale control files.
+- Made pipe, terminal, and PTY log cases report an explicit non-replayable
+  diagnostic instead of falling back to empty system logs.
+
 ## 0.1.21 - 2026-05-26
 
 ### Fixed

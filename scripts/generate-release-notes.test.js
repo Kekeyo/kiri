@@ -52,7 +52,7 @@ test("renders install commands, assets, and compare link", () => {
   const notes = renderReleaseNotes({
     version: "v0.1.7",
     changelog,
-    repo: "GaoSSR/kiri",
+    repo: "GaoSSR/Kiri",
     previousTag: "v0.1.6",
   });
 

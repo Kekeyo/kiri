@@ -5,7 +5,7 @@ This document defines the intended release packaging plan for Kiri. It does not 
 ## Naming
 
 - Product name: Kiri.
-- Repository: `gaossr/kiri`.
+- Repository: `GaoSSR/Kiri`.
 - Cargo package: `kiri`.
 - npm package: `@gaossr/kiri`.
 - Homebrew tap formula: `gaossr/tap/kiri`.
@@ -36,7 +36,7 @@ Automated tests, GitHub Actions, dry-runs, checksums, and package audits are nec
 Planned install script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gaossr/kiri/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh | bash
 ```
 
 Planned npm install:
@@ -54,7 +54,7 @@ brew install gaossr/tap/kiri
 Planned Windows PowerShell entry:
 
 ```powershell
-irm https://raw.githubusercontent.com/gaossr/kiri/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.ps1 | iex
 ```
 
 Windows support is not available yet. The PowerShell script is an entry scaffold and must report that Windows artifacts and collectors have not shipped.

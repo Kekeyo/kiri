@@ -1,38 +1,96 @@
 use crate::model::{RawListenerEntry, RawProcessEntry, RawProcessInfo};
+use crate::platform::PlatformError;
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 use std::path::PathBuf;
 use std::process::Command;
 
 pub fn get_listening_ports_raw() -> Vec<RawListenerEntry> {
+    get_listening_ports_raw_checked().unwrap_or_default()
+}
+
+pub fn get_listening_ports_raw_checked() -> Result<Vec<RawListenerEntry>, PlatformError> {
     let output = match Command::new("ss").args(["-H", "-ltnp"]).output() {
         Ok(output) => output,
-        Err(_) => return get_lsof_listening_ports_raw(),
+        Err(ss_error) => {
+            return get_lsof_listening_ports_raw_checked().map_err(|lsof_error| {
+                PlatformError::new(
+                    "ss/lsof",
+                    format!("ss: {ss_error}; fallback {}", lsof_error.message),
+                )
+            })
+        }
     };
 
     if !output.status.success() {
-        return get_lsof_listening_ports_raw();
+        return get_lsof_listening_ports_raw_checked().map_err(|lsof_error| {
+            PlatformError::new(
+                "ss/lsof",
+                format!(
+                    "ss: {}; fallback {}",
+                    command_failure_message(&output.stderr, output.status.code()),
+                    lsof_error.message
+                ),
+            )
+        });
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    parse_ss_listeners(&raw)
+    Ok(parse_ss_listeners(&raw))
 }
 
-fn get_lsof_listening_ports_raw() -> Vec<RawListenerEntry> {
+pub fn get_listener_on_port_raw_checked(
+    port: u16,
+) -> Result<Option<RawListenerEntry>, PlatformError> {
+    let port_selector = format!(":{port}");
+    match Command::new("ss")
+        .args(["-H", "-ltnp", "sport", "=", &port_selector])
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            let raw = String::from_utf8_lossy(&output.stdout);
+            return Ok(parse_ss_listeners(&raw)
+                .into_iter()
+                .find(|entry| entry.port == port));
+        }
+        Ok(_) | Err(_) => {}
+    }
+
+    Ok(get_lsof_listening_ports_raw_checked()?
+        .into_iter()
+        .find(|entry| entry.port == port))
+}
+
+fn get_lsof_listening_ports_raw_checked() -> Result<Vec<RawListenerEntry>, PlatformError> {
     let output = match Command::new("lsof")
         .args(["-iTCP", "-sTCP:LISTEN", "-P", "-n"])
         .output()
     {
         Ok(output) => output,
-        Err(_) => return Vec::new(),
+        Err(error) => return Err(PlatformError::new("lsof", error.to_string())),
     };
 
     if !output.status.success() {
-        return Vec::new();
+        return Err(PlatformError::new(
+            "lsof",
+            command_failure_message(&output.stderr, output.status.code()),
+        ));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    parse_lsof_listeners(&raw)
+    Ok(parse_lsof_listeners(&raw))
+}
+
+fn command_failure_message(stderr: &[u8], code: Option<i32>) -> String {
+    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
+    if stderr.is_empty() {
+        format!(
+            "exit status {}",
+            code.map_or_else(|| "unknown".to_string(), |code| code.to_string())
+        )
+    } else {
+        stderr
+    }
 }
 
 pub fn parse_ss_listeners(raw: &str) -> Vec<RawListenerEntry> {
@@ -120,7 +178,7 @@ pub fn batch_process_info(pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
             "-p",
             &pid_list,
             "-o",
-            "pid=,ppid=,stat=,rss=,lstart=,command=",
+            "pid=,ppid=,stat=,pcpu=,rss=,lstart=,command=",
         ])
         .output()
     {
@@ -141,7 +199,7 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
 
     for line in raw.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 10 {
+        if parts.len() < 11 {
             continue;
         }
 
@@ -153,12 +211,16 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
             Ok(ppid) => ppid,
             Err(_) => continue,
         };
-        let rss_kb = match parts[3].parse::<u64>() {
+        let cpu = match parts[3].parse::<f64>() {
+            Ok(cpu) => cpu,
+            Err(_) => continue,
+        };
+        let rss_kb = match parts[4].parse::<u64>() {
             Ok(rss_kb) => rss_kb,
             Err(_) => continue,
         };
 
-        let Some((lstart, command)) = parse_lstart_and_command(&parts[4..]) else {
+        let Some((lstart, command)) = parse_lstart_and_command(&parts[5..]) else {
             continue;
         };
 
@@ -167,6 +229,7 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
             RawProcessInfo {
                 ppid,
                 stat: parts[2].to_string(),
+                cpu,
                 rss_kb,
                 lstart,
                 command,
@@ -191,20 +254,27 @@ pub fn batch_cwd(pids: &[u32]) -> HashMap<u32, PathBuf> {
 }
 
 pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
+    get_all_processes_raw_checked().unwrap_or_default()
+}
+
+pub fn get_all_processes_raw_checked() -> Result<Vec<RawProcessEntry>, PlatformError> {
     let output = match ps_command()
         .args(["-eo", "pid=,pcpu=,pmem=,rss=,lstart=,command="])
         .output()
     {
         Ok(output) => output,
-        Err(_) => return Vec::new(),
+        Err(error) => return Err(PlatformError::new("ps", error.to_string())),
     };
 
     if !output.status.success() {
-        return Vec::new();
+        return Err(PlatformError::new(
+            "ps",
+            command_failure_message(&output.stderr, output.status.code()),
+        ));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    parse_all_processes(&raw, std::process::id())
+    Ok(parse_all_processes(&raw, std::process::id()))
 }
 
 pub fn parse_all_processes(raw: &str, current_pid: u32) -> Vec<RawProcessEntry> {
@@ -423,7 +493,7 @@ LISTEN 0 4096 127.0.0.1:3000 0.0.0.0:*
     #[test]
     fn parses_process_info_and_all_processes() {
         let raw = "\
-42872 1 S 184320 Mon May 20 14:12:44 2026 node /repo/app/server.js
+42872 1 S 2.5 184320 Mon May 20 14:12:44 2026 node /repo/app/server.js
 ";
 
         let processes = parse_process_info(raw);
@@ -431,6 +501,7 @@ LISTEN 0 4096 127.0.0.1:3000 0.0.0.0:*
 
         assert_eq!(process.ppid, 1);
         assert_eq!(process.stat, "S");
+        assert_eq!(process.cpu, 2.5);
         assert_eq!(process.rss_kb, 184320);
         assert_eq!(process.lstart, "May 20 14:12:44 2026");
         assert_eq!(process.command, "node /repo/app/server.js");

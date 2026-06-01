@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo="${KIRI_REPO:-gaossr/kiri}"
+repo="${KIRI_REPO:-GaoSSR/Kiri}"
 version="${KIRI_VERSION:-latest}"
 install_dir="${KIRI_INSTALL_DIR:-${HOME}/.local/bin}"
 

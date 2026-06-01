@@ -1,4 +1,5 @@
 use crate::model::{RawListenerEntry, RawProcessEntry, RawProcessInfo};
+use crate::platform::PlatformError;
 
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -6,20 +7,116 @@ use std::path::PathBuf;
 use std::process::Command;
 
 pub fn get_listening_ports_raw() -> Vec<RawListenerEntry> {
-    let output = match Command::new("lsof")
-        .args(["-iTCP", "-sTCP:LISTEN", "-P", "-n"])
+    get_listening_ports_raw_checked().unwrap_or_default()
+}
+
+pub fn get_listening_ports_raw_checked() -> Result<Vec<RawListenerEntry>, PlatformError> {
+    run_lsof_listener_command(&["-nP", "-iTCP", "-sTCP:LISTEN", "-F", "pcn"])
+}
+
+pub fn get_listener_on_port_raw_checked(
+    port: u16,
+) -> Result<Option<RawListenerEntry>, PlatformError> {
+    let selector = format!("-iTCP:{port}");
+    let output = Command::new("lsof")
+        .args(["-nP", &selector, "-sTCP:LISTEN", "-F", "pcn"])
         .output()
-    {
-        Ok(output) => output,
-        Err(_) => return Vec::new(),
-    };
+        .map_err(|error| PlatformError::new("lsof", error.to_string()))?;
+
+    let raw = String::from_utf8_lossy(&output.stdout);
+    if !output.status.success() && lsof_port_output_means_no_listener(&raw, &output.stderr) {
+        return Ok(None);
+    }
+    if !output.status.success() {
+        return Err(PlatformError::new(
+            "lsof",
+            command_failure_message(&output.stderr, output.status.code()),
+        ));
+    }
+
+    Ok(parse_lsof_field_listeners(&raw)
+        .into_iter()
+        .find(|entry| entry.port == port))
+}
+
+fn run_lsof_listener_command(args: &[&str]) -> Result<Vec<RawListenerEntry>, PlatformError> {
+    let output = Command::new("lsof")
+        .args(args)
+        .output()
+        .map_err(|error| PlatformError::new("lsof", error.to_string()))?;
 
     if !output.status.success() {
-        return Vec::new();
+        return Err(PlatformError::new(
+            "lsof",
+            command_failure_message(&output.stderr, output.status.code()),
+        ));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    parse_lsof_listeners(&raw)
+    Ok(parse_lsof_field_listeners(&raw))
+}
+
+fn command_failure_message(stderr: &[u8], code: Option<i32>) -> String {
+    let stderr = String::from_utf8_lossy(stderr).trim().to_string();
+    if stderr.is_empty() {
+        format!(
+            "exit status {}",
+            code.map_or_else(|| "unknown".to_string(), |code| code.to_string())
+        )
+    } else {
+        stderr
+    }
+}
+
+fn lsof_port_output_means_no_listener(stdout: &str, stderr: &[u8]) -> bool {
+    stdout.trim().is_empty() && String::from_utf8_lossy(stderr).trim().is_empty()
+}
+
+pub fn parse_lsof_field_listeners(raw: &str) -> Vec<RawListenerEntry> {
+    let mut seen_ports = HashSet::new();
+    let mut entries = Vec::new();
+    let mut current_pid = None;
+    let mut current_command = None;
+
+    for line in raw.lines() {
+        if let Some(pid) = line
+            .strip_prefix('p')
+            .and_then(|value| value.parse::<u32>().ok())
+        {
+            current_pid = Some(pid);
+            current_command = None;
+            continue;
+        }
+
+        if let Some(command) = line.strip_prefix('c') {
+            current_command = Some(command.to_string());
+            continue;
+        }
+
+        let Some(name) = line.strip_prefix('n') else {
+            continue;
+        };
+        let Some(pid) = current_pid else {
+            continue;
+        };
+        let Some(port) = parse_port_from_name_field(name) else {
+            continue;
+        };
+        if !seen_ports.insert(port) {
+            continue;
+        }
+
+        entries.push(RawListenerEntry {
+            port,
+            pid,
+            process_name: current_command
+                .clone()
+                .unwrap_or_else(|| format!("pid-{pid}")),
+        });
+    }
+
+    entries.sort_by_key(|entry| entry.port);
+    entries
 }
 
 pub fn parse_lsof_listeners(raw: &str) -> Vec<RawListenerEntry> {
@@ -73,7 +170,7 @@ pub fn batch_process_info(pids: &[u32]) -> HashMap<u32, RawProcessInfo> {
             "-p",
             &pid_list,
             "-o",
-            "pid=,ppid=,stat=,rss=,lstart=,command=",
+            "pid=,ppid=,stat=,pcpu=,rss=,lstart=,command=",
         ])
         .output()
     {
@@ -94,7 +191,7 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
 
     for line in raw.lines() {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 10 {
+        if parts.len() < 11 {
             continue;
         }
 
@@ -106,12 +203,16 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
             Ok(ppid) => ppid,
             Err(_) => continue,
         };
-        let rss_kb = match parts[3].parse::<u64>() {
+        let cpu = match parts[3].parse::<f64>() {
+            Ok(cpu) => cpu,
+            Err(_) => continue,
+        };
+        let rss_kb = match parts[4].parse::<u64>() {
             Ok(rss_kb) => rss_kb,
             Err(_) => continue,
         };
 
-        let Some((lstart, command)) = parse_lstart_and_command(&parts[4..]) else {
+        let Some((lstart, command)) = parse_lstart_and_command(&parts[5..]) else {
             continue;
         };
 
@@ -120,6 +221,7 @@ pub fn parse_process_info(raw: &str) -> HashMap<u32, RawProcessInfo> {
             RawProcessInfo {
                 ppid,
                 stat: parts[2].to_string(),
+                cpu,
                 rss_kb,
                 lstart,
                 command,
@@ -179,20 +281,27 @@ pub fn parse_cwd_output(raw: &str) -> HashMap<u32, PathBuf> {
 }
 
 pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
+    get_all_processes_raw_checked().unwrap_or_default()
+}
+
+pub fn get_all_processes_raw_checked() -> Result<Vec<RawProcessEntry>, PlatformError> {
     let output = match ps_command()
         .args(["-eo", "pid=,pcpu=,pmem=,rss=,lstart=,command="])
         .output()
     {
         Ok(output) => output,
-        Err(_) => return Vec::new(),
+        Err(error) => return Err(PlatformError::new("ps", error.to_string())),
     };
 
     if !output.status.success() {
-        return Vec::new();
+        return Err(PlatformError::new(
+            "ps",
+            command_failure_message(&output.stderr, output.status.code()),
+        ));
     }
 
     let raw = String::from_utf8_lossy(&output.stdout);
-    parse_all_processes(&raw, std::process::id())
+    Ok(parse_all_processes(&raw, std::process::id()))
 }
 
 pub fn parse_all_processes(raw: &str, current_pid: u32) -> Vec<RawProcessEntry> {
@@ -247,6 +356,7 @@ pub fn parse_all_processes(raw: &str, current_pid: u32) -> Vec<RawProcessEntry> 
 }
 
 fn parse_port_from_name_field(name_field: &str) -> Option<u16> {
+    let name_field = name_field.split_whitespace().next().unwrap_or(name_field);
     let (_, port_text) = name_field.rsplit_once(':')?;
     if port_text.is_empty() || !port_text.bytes().all(|byte| byte.is_ascii_digit()) {
         return None;
@@ -391,6 +501,83 @@ node    42872 user   23u  IPv6 0x123456789abcdef0      0t0  TCP *:3000 (LISTEN)
     }
 
     #[test]
+    fn parses_lsof_field_output_with_multiple_listener_names() {
+        let raw = "\
+p12345
+cnode
+n*:3000
+n127.0.0.1:3001
+p23456
+cjava
+n[::1]:8080
+";
+
+        let entries = parse_lsof_field_listeners(raw);
+
+        assert_eq!(
+            entries,
+            vec![
+                RawListenerEntry {
+                    port: 3000,
+                    pid: 12345,
+                    process_name: "node".to_string(),
+                },
+                RawListenerEntry {
+                    port: 3001,
+                    pid: 12345,
+                    process_name: "node".to_string(),
+                },
+                RawListenerEntry {
+                    port: 8080,
+                    pid: 23456,
+                    process_name: "java".to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn lsof_field_parser_ignores_bad_ports_and_keeps_first_listener_per_port() {
+        let raw = "\
+p12345
+n*:3000
+n127.0.0.1:3000 (LISTEN)
+n*:0
+n*:not-a-port
+p23456
+cjava
+n*:8080
+";
+
+        let entries = parse_lsof_field_listeners(raw);
+
+        assert_eq!(
+            entries,
+            vec![
+                RawListenerEntry {
+                    port: 3000,
+                    pid: 12345,
+                    process_name: "pid-12345".to_string(),
+                },
+                RawListenerEntry {
+                    port: 8080,
+                    pid: 23456,
+                    process_name: "java".to_string(),
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn lsof_port_lookup_does_not_hide_non_empty_stderr_as_missing_listener() {
+        assert!(lsof_port_output_means_no_listener("", b""));
+        assert!(!lsof_port_output_means_no_listener(
+            "",
+            b"lsof: unacceptable port specification"
+        ));
+    }
+
+    #[test]
     fn ignores_incomplete_lines_and_lines_without_ports() {
         let raw = "\
 COMMAND   PID USER   FD   TYPE             DEVICE SIZE/OFF NODE NAME
@@ -427,7 +614,7 @@ python3 51000 user   24u  IPv4 0x123456789abcdef1      0t0  TCP 127.0.0.1:3000 (
     #[test]
     fn parses_process_info_lines_with_expected_fields() {
         let raw = "\
-42872 1 S 184320 Mon May 20 14:12:44 2026 node /repo/app/server.js
+42872 1 S 2.5 184320 Mon May 20 14:12:44 2026 node /repo/app/server.js
 ";
 
         let processes = parse_process_info(raw);
@@ -435,6 +622,7 @@ python3 51000 user   24u  IPv4 0x123456789abcdef1      0t0  TCP 127.0.0.1:3000 (
 
         assert_eq!(process.ppid, 1);
         assert_eq!(process.stat, "S");
+        assert_eq!(process.cpu, 2.5);
         assert_eq!(process.rss_kb, 184320);
         assert_eq!(process.lstart, "May 20 14:12:44 2026");
         assert_eq!(process.command, "node /repo/app/server.js");
@@ -443,7 +631,7 @@ python3 51000 user   24u  IPv4 0x123456789abcdef1      0t0  TCP 127.0.0.1:3000 (
     #[test]
     fn parses_process_info_lines_with_chinese_lstart_locale() {
         let raw = "\
-37747 37709 S+ 53264 五 5月/22 18:45:15 2026 node /repo/app/node_modules/.bin/vite
+37747 37709 S+ 0.4 53264 五 5月/22 18:45:15 2026 node /repo/app/node_modules/.bin/vite
 ";
 
         let processes = parse_process_info(raw);
@@ -456,8 +644,8 @@ python3 51000 user   24u  IPv4 0x123456789abcdef1      0t0  TCP 127.0.0.1:3000 (
     #[test]
     fn ignores_incomplete_process_info_lines() {
         let raw = "\
-42872 1 S 184320 Mon May 20
-not-a-pid 1 S 184320 Mon May 20 14:12:44 2026 node
+42872 1 S 0.1 184320 Mon May 20
+not-a-pid 1 S 0.1 184320 Mon May 20 14:12:44 2026 node
 ";
 
         let processes = parse_process_info(raw);
@@ -468,7 +656,7 @@ not-a-pid 1 S 184320 Mon May 20 14:12:44 2026 node
     #[test]
     fn preserves_process_command_when_it_contains_spaces() {
         let raw = "\
-51000 42872 S 2048 Fri May 22 09:01:02 2026 /usr/local/bin/node /repo/app/node_modules/.bin/vite --host 0.0.0.0
+51000 42872 S 1.7 2048 Fri May 22 09:01:02 2026 /usr/local/bin/node /repo/app/node_modules/.bin/vite --host 0.0.0.0
 ";
 
         let processes = parse_process_info(raw);

@@ -66,14 +66,14 @@ Publishing uses npm Trusted Publishing through GitHub Actions OIDC. Do not store
 Required npm trusted publisher configuration for `@gaossr/kiri`:
 
 - Provider: GitHub Actions
-- Repository: `GaoSSR/kiri`
+- Repository: `GaoSSR/Kiri`
 - Workflow filename: `npm-publish.yml`
 - Allowed action: `npm publish`
 
 The equivalent npm CLI setup command is:
 
 ```bash
-npm trust github @gaossr/kiri --file npm-publish.yml --repo GaoSSR/kiri --allow-publish
+npm trust github @gaossr/kiri --file npm-publish.yml --repo GaoSSR/Kiri --allow-publish
 ```
 
 This requires npm CLI 11.10.0 or newer, write access to `@gaossr/kiri`, and
@@ -83,5 +83,5 @@ After the Release workflow has uploaded and checksummed the npm tarballs, publis
 the already-built artifacts with:
 
 ```bash
-gh workflow run "Publish npm" --repo GaoSSR/kiri --ref main -f version=<version>
+gh workflow run "Publish npm" --repo GaoSSR/Kiri --ref main -f version=<version>
 ```

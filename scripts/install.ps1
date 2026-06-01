@@ -1,6 +1,6 @@
 $ErrorActionPreference = "Stop"
 
-$Repo = if ($env:KIRI_REPO) { $env:KIRI_REPO } else { "GaoSSR/kiri" }
+$Repo = if ($env:KIRI_REPO) { $env:KIRI_REPO } else { "GaoSSR/Kiri" }
 $Version = if ($env:KIRI_VERSION) { $env:KIRI_VERSION } else { "latest" }
 $InstallDir = if ($env:KIRI_INSTALL_DIR) {
     $env:KIRI_INSTALL_DIR

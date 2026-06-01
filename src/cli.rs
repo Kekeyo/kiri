@@ -1,9 +1,9 @@
 use crate::clean::run_clean_command;
 use crate::kill::run_kill_command;
 use crate::logs::run_logs_command;
-use crate::process::get_all_processes;
+use crate::process::scan_all_processes;
 use crate::render::table::{render_port_detail, render_port_table, render_process_table};
-use crate::scanner::{get_listening_ports, get_port_details};
+use crate::scanner::{scan_listening_ports, scan_port_details};
 use crate::watch::run_watch_command;
 use std::io::{self, Write};
 
@@ -18,23 +18,30 @@ where
 {
     match parse_args(args) {
         Ok(Command::List { show_all }) => {
-            let ports = get_listening_ports(show_all);
-            finish_output(render_port_table(&ports, !show_all), 0)
+            let scan = scan_listening_ports(show_all);
+            let output = append_warnings(render_port_table(&scan.ports, !show_all), &scan.warnings);
+            finish_output(output, if scan.warnings.is_empty() { 0 } else { 1 })
         }
         Ok(Command::PortDetails { port }) => {
-            let output = match get_port_details(port) {
-                Some(info) => render_port_detail(&info),
+            let scan = scan_port_details(port);
+            let output = match scan.ports.first() {
+                Some(info) => render_port_detail(info),
                 None => format!("No process found listening on :{port}.\n"),
             };
-            finish_output(output, 0)
+            let output = append_warnings(output, &scan.warnings);
+            finish_output(output, if scan.warnings.is_empty() { 0 } else { 1 })
         }
         Ok(Command::Kill { args }) => {
             let outcome = run_kill_command(&args);
             finish_output(outcome.output, outcome.exit_code)
         }
         Ok(Command::Ps { show_all }) => {
-            let processes = get_all_processes(show_all);
-            finish_output(render_process_table(&processes, !show_all), 0)
+            let scan = scan_all_processes(show_all);
+            let output = append_warnings(
+                render_process_table(&scan.processes, !show_all),
+                &scan.warnings,
+            );
+            finish_output(output, if scan.warnings.is_empty() { 0 } else { 1 })
         }
         Ok(Command::Logs { args }) => {
             let outcome = run_logs_command(&args);
@@ -52,6 +59,21 @@ where
             1
         }
     }
+}
+
+fn append_warnings(mut output: String, warnings: &[String]) -> String {
+    if warnings.is_empty() {
+        return output;
+    }
+
+    if !output.ends_with('\n') {
+        output.push('\n');
+    }
+    for warning in warnings {
+        output.push_str(warning);
+        output.push('\n');
+    }
+    output
 }
 
 fn finish_output(output: String, exit_code: i32) -> i32 {
@@ -242,6 +264,19 @@ mod tests {
         assert_eq!(
             parse_args(["--color=auto"]),
             Err("Color output is always enabled; --color is not supported.".to_string())
+        );
+    }
+
+    #[test]
+    fn appends_platform_warnings_without_hiding_primary_output() {
+        let warning =
+            crate::platform::PlatformError::new("lsof", "permission denied").render_warning();
+
+        let output = append_warnings("Kiri table".to_string(), &[warning]);
+
+        assert_eq!(
+            output,
+            "Kiri table\nKiri warning: lsof failed: permission denied\n"
         );
     }
 
