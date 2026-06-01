@@ -52,7 +52,7 @@ Run `ports logs <port|pid> -f` to follow the matched process logs. Kiri keeps de
 
 ## Meet Kiri
 
-The default `ports` terminal view opens with a cute Kiri companion before the port table:
+The default `ports` terminal view opens with a cute Kiri ASCII logo before the port table:
 
 ```text
       .-~~~~-.
@@ -134,7 +134,7 @@ In practice, `orphaned` means "this process is still running, but its original l
 
 On macOS, Kiri uses `lsof`, `ps`, `tail`, macOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`; process working directories are best-effort from executable paths. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
 
-`ports` intentionally renders the Kiri companion and ANSI terminal output by default. `ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs. For services started through a terminal, a stable file-backed log such as `.dev-logs/service.log` lets `ports logs <port|pid> -f` follow output from another process.
+`ports` intentionally renders the Kiri ASCII logo and ANSI terminal output by default. `ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs. For services started through a terminal, a stable file-backed log such as `.dev-logs/service.log` lets `ports logs <port|pid> -f` follow output from another process.
 
 The default `ports` table stays focused on developer ports and includes `Mem`, so day-to-day checks do not require the broader `ports ps` process view.
 

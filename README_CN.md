@@ -52,7 +52,7 @@ Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CL
 
 ## 认识 Kiri
 
-默认 `ports` 终端视图会先显示一个可爱的 Kiri 伙伴，然后再展示端口表：
+默认 `ports` 终端视图会先显示一个可爱的 Kiri ASCII Logo，然后再展示端口表：
 
 ```text
       .-~~~~-.
@@ -134,7 +134,7 @@ Kiri 在 `ports` 表格里会使用这些状态：
 
 在 macOS 上，Kiri 使用 `lsof`、`ps`、`tail`、macOS `log` 命令，并在 Docker 可用时读取容器端口映射。Linux 使用 `ss`、`ps`、`/proc` 和可选 Docker 元数据。Windows 使用 PowerShell/CIM 和 `Get-NetTCPConnection`；进程工作目录会尽量从可执行文件路径推断。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
 
-`ports` 默认就会渲染 Kiri 伙伴和 ANSI 终端输出，这是产品体验的一部分。`ports logs` 会为常见开发日志格式添加 ANSI 颜色，包括 Java、Python、Go、Node.js、logfmt 和 JSON 日志。对于从终端启动的服务，使用 `.dev-logs/service.log` 这类稳定日志文件，可以让 `ports logs <port|pid> -f` 从另一个进程持续跟随输出。
+`ports` 默认就会渲染 Kiri ASCII Logo 和 ANSI 终端输出，这是产品体验的一部分。`ports logs` 会为常见开发日志格式添加 ANSI 颜色，包括 Java、Python、Go、Node.js、logfmt 和 JSON 日志。对于从终端启动的服务，使用 `.dev-logs/service.log` 这类稳定日志文件，可以让 `ports logs <port|pid> -f` 从另一个进程持续跟随输出。
 
 默认 `ports` 表格仍然只聚焦开发端口，并直接显示 `Mem`，日常查看内存占用不需要再进入更宽的 `ports ps` 进程视图。
 
