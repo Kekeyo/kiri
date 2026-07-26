@@ -122,7 +122,7 @@ function renderReleaseNotes(options) {
   lines.push("## Install");
   lines.push("");
   lines.push("```bash");
-  lines.push("npm install -g @gaossr/kiri");
+  lines.push("npm install -g @gaossr/kiri@latest");
   lines.push("brew install gaossr/tap/kiri");
   lines.push(`curl -fsSL ${installScript}/install.sh | bash`);
   lines.push("```");

@@ -58,7 +58,11 @@ test("renders install commands, assets, and compare link", () => {
 
   assert.match(notes, /^# Kiri 0\.1\.7/m);
   assert.match(notes, /^## Highlights/m);
-  assert.match(notes, /npm install -g @gaossr\/kiri/);
+  assert.match(
+    notes,
+    /```bash\nnpm install -g @gaossr\/kiri@latest\nbrew install gaossr\/tap\/kiri\n/
+  );
+  assert.doesNotMatch(notes, /npm install -g @gaossr\/kiri(?:\s|$)/m);
   assert.match(notes, /kiri-x86_64-unknown-linux-musl\.tar\.gz/);
   assert.match(notes, /kiri-x86_64-pc-windows-msvc\.zip/);
   assert.match(notes, /kiri-npm-win32-x64-0\.1\.7\.tgz/);

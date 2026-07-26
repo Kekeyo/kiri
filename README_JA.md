@@ -76,7 +76,7 @@ Kiri は、MacOS、Linux x64、Windows x64 向けのビルド済みリリース�
 
 ```bash
 # npm
-npm install -g @gaossr/kiri
+npm install -g @gaossr/kiri@latest
 
 # MacOS では Homebrew を推奨
 brew install gaossr/tap/kiri

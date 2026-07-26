@@ -76,7 +76,7 @@ Kiri ships prebuilt release artifacts for MacOS, Linux x64, and Windows x64. Ins
 
 ```bash
 # npm
-npm install -g @gaossr/kiri
+npm install -g @gaossr/kiri@latest
 
 # Recommended on MacOS with Homebrew
 brew install gaossr/tap/kiri

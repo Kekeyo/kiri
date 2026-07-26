@@ -42,7 +42,7 @@ curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh
 Planned npm install:
 
 ```bash
-npm install -g @gaossr/kiri
+npm install -g @gaossr/kiri@latest
 ```
 
 Planned Homebrew install:

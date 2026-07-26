@@ -5,7 +5,7 @@ This directory packages Kiri for npm with precompiled macOS, Linux x64, and Wind
 Users install it with:
 
 ```bash
-npm install -g @gaossr/kiri
+npm install -g @gaossr/kiri@latest
 ```
 
 The root package name is `@gaossr/kiri`. It exposes one command:

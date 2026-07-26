@@ -76,7 +76,7 @@ Kiri 当前已经发布 MacOS、Linux x64、Windows x64 预编译 release artifa
 
 ```bash
 # npm
-npm install -g @gaossr/kiri
+npm install -g @gaossr/kiri@latest
 
 # MacOS 推荐使用 Homebrew 安装
 brew install gaossr/tap/kiri
