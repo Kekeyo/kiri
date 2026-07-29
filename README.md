@@ -148,7 +148,7 @@ cargo test
 cargo clippy --all-targets -- -D warnings
 cargo build --release --bin ports
 scripts/perf-smoke.sh
-scripts/verify-release.sh v0.1.22
+scripts/verify-release.sh v0.1.23
 cargo run --bin ports
 cargo run --bin ports -- --all
 cargo run --bin ports -- ps

@@ -9,10 +9,42 @@ pub fn is_developer_process(process_name: &str, command: &str) -> bool {
         return false;
     }
 
-    DEV_PROCESS_NAMES.contains(&name.as_str())
+    is_python_process_name(&name)
+        || DEV_PROCESS_NAMES.contains(&name.as_str())
         || name.starts_with("com.docke")
         || name == "docker-sandbox"
         || command_has_developer_indicator(&command)
+}
+
+pub(crate) fn is_python_process_name(process_name: &str) -> bool {
+    let name = process_name.to_ascii_lowercase();
+    let name = name.strip_suffix(".exe").unwrap_or(&name);
+
+    if name == "python" {
+        return true;
+    }
+
+    let Some(version) = name.strip_prefix("python") else {
+        return false;
+    };
+    let (version, free_threaded) = match version.strip_suffix('t') {
+        Some(version) => (version, true),
+        None => (version, false),
+    };
+    let mut components = version.split('.');
+    let Some(major) = components.next() else {
+        return false;
+    };
+
+    if major.is_empty() || !major.bytes().all(|byte| byte.is_ascii_digit()) {
+        return false;
+    }
+
+    match (components.next(), components.next()) {
+        (None, None) => !free_threaded,
+        (Some(minor), None) => !minor.is_empty() && minor.bytes().all(|byte| byte.is_ascii_digit()),
+        _ => false,
+    }
 }
 
 fn command_has_developer_indicator(command: &str) -> bool {
@@ -86,8 +118,6 @@ const SYSTEM_PROCESS_PREFIXES: &[&str] = &[
 
 const DEV_PROCESS_NAMES: &[&str] = &[
     "node",
-    "python",
-    "python3",
     "ruby",
     "java",
     "go",
@@ -137,9 +167,54 @@ mod tests {
     fn identifies_common_developer_processes_by_name() {
         assert!(is_developer_process("node", ""));
         assert!(is_developer_process("python3", ""));
+        assert!(is_developer_process("python3.13", ""));
         assert!(is_developer_process("java", ""));
         assert!(is_developer_process("docker", ""));
         assert!(is_developer_process("com.docker.backend", ""));
+    }
+
+    #[test]
+    fn identifies_supported_python_process_names() {
+        for process_name in [
+            "python",
+            "PYTHON",
+            "python2",
+            "python3",
+            "python2.7",
+            "python3.13",
+            "python3.13t",
+            "python.exe",
+            "Python3.EXE",
+            "PYTHON3.13.EXE",
+            "python3.13T.exe",
+        ] {
+            assert!(
+                is_python_process_name(process_name),
+                "expected {process_name:?} to be recognized"
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_python_process_name_near_misses() {
+        for process_name in [
+            "",
+            "pythonista",
+            "python-server",
+            "python.",
+            "python3.",
+            "python.13",
+            "python3t",
+            "python3.13m",
+            "python3.13.1",
+            "python3.13.exe.bak",
+            "/usr/bin/python3.13",
+        ] {
+            assert!(
+                !is_python_process_name(process_name),
+                "expected {process_name:?} to be rejected"
+            );
+        }
     }
 
     #[test]

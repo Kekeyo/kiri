@@ -6,6 +6,14 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.23 - 2026-07-29
+
+### Fixed
+
+- Recognized versioned Python interpreter names such as `python3.13`, including
+  Windows `.exe` names and free-threaded `t` suffixes, so the default `ports`
+  view no longer hides their listeners and reports the Python framework.
+
 ## 0.1.22 - 2026-06-01
 
 ### Added

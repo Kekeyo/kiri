@@ -1,3 +1,4 @@
+use crate::dev_process::is_python_process_name;
 use serde_json::{Map, Value};
 use std::fs;
 use std::path::Path;
@@ -56,9 +57,12 @@ pub fn detect_framework_from_command(command: &str, process_name: &str) -> Optio
 }
 
 pub fn detect_framework_from_name(process_name: &str) -> Option<&'static str> {
+    if is_python_process_name(process_name) {
+        return Some("Python");
+    }
+
     match process_name.to_ascii_lowercase().as_str() {
         "node" => Some("Node.js"),
-        "python" | "python3" => Some("Python"),
         "ruby" => Some("Ruby"),
         "java" => Some("Java"),
         "go" => Some("Go"),
@@ -193,8 +197,12 @@ mod tests {
         let cases = [
             ("node", Some("Node.js")),
             ("python3", Some("Python")),
+            ("python3.13", Some("Python")),
+            ("PYTHON3.13T.EXE", Some("Python")),
             ("java", Some("Java")),
             ("go", Some("Go")),
+            ("python-server", None),
+            ("python3.13.1", None),
             ("unknown", None),
         ];
 
