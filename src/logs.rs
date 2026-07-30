@@ -1,7 +1,7 @@
 use crate::kill::{resolve_target, SystemResolver};
 use crate::platform;
 use chrono::{Local, NaiveDateTime, TimeZone};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, BufRead, BufReader, Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -10,6 +10,7 @@ use std::time::{Duration, Instant, SystemTime};
 
 const LSOF_TIMEOUT: Duration = Duration::from_secs(2);
 const LSOF_MAX_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
+const LSOF_NUMERIC_FD_RANGE: &str = "0-2147483647";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LogRequest {
@@ -39,10 +40,19 @@ struct PipeReader {
     command: String,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct PipeReaderFd {
+    pid: u32,
+    command: String,
+    fd: u32,
+    stream: LogFd,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LogFd {
     Stdout,
     Stderr,
+    Combined,
     File,
 }
 
@@ -232,18 +242,12 @@ fn parse_target(value: &str) -> Result<u32, LogParseError> {
 
 pub fn get_process_log_files(pid: u32) -> Vec<LogFile> {
     let mut current_files = Vec::new();
-    let mut pipe_ids = HashSet::new();
 
     if cfg!(any(target_os = "macos", target_os = "linux")) {
-        if let Ok(raw) = run_lsof_limited(&["-p".to_string(), pid.to_string()]) {
+        if let Ok(raw) = run_lsof_fd_lookup(Some(pid), cfg!(target_os = "linux")) {
             current_files.extend(parse_lsof_log_files(&raw));
-            pipe_ids = parse_lsof_pipe_ids(&raw);
-        }
-    }
-
-    if !pipe_ids.is_empty() {
-        if let Ok(raw) = run_lsof_limited(&[]) {
-            current_files.extend(parse_pipe_writer_log_files(&raw, &pipe_ids));
+            let pipe_readers = find_pipe_reader_fds(pid, &raw);
+            current_files.extend(get_pipe_reader_log_files(&pipe_readers));
         }
     }
 
@@ -306,53 +310,267 @@ pub fn parse_lsof_log_files(raw: &str) -> Vec<LogFile> {
     sort_and_deduplicate_log_files(files)
 }
 
-fn parse_lsof_pipe_ids(raw: &str) -> HashSet<String> {
-    raw.lines()
-        .skip(1)
-        .filter_map(|line| {
-            let parts: Vec<&str> = line.split_whitespace().collect();
-            if parts.len() < 6 || parts[4] != "PIPE" {
-                return None;
-            }
+fn find_pipe_reader_fds(target_pid: u32, target_raw: &str) -> Vec<PipeReaderFd> {
+    let linux_readers = parse_linux_pipe_reader_fds(target_raw, target_pid);
+    if !linux_readers.is_empty() {
+        return linux_readers;
+    }
 
-            matches!(fd_number(parts[3]), Some(1 | 2)).then(|| parts[5].to_string())
-        })
-        .collect()
-}
-
-fn parse_pipe_writer_log_files(raw: &str, pipe_ids: &HashSet<String>) -> Vec<LogFile> {
-    if pipe_ids.is_empty() {
+    let target_streams = parse_macos_target_pipe_streams(target_raw);
+    if target_streams.is_empty() {
         return Vec::new();
     }
 
-    let pipe_reader_pids: HashSet<String> = parse_pipe_reader_processes(raw, pipe_ids)
-        .into_iter()
-        .map(|reader| reader.pid.to_string())
-        .collect();
+    run_lsof_fd_lookup(None, false)
+        .map(|raw| parse_macos_pipe_reader_fds(&raw, &target_streams))
+        .unwrap_or_default()
+}
 
-    let mut files = Vec::new();
+fn parse_macos_target_pipe_streams(raw: &str) -> HashMap<String, LogFd> {
+    let mut streams = HashMap::new();
     for line in raw.lines().skip(1) {
         let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 8 || parts[4] != "REG" || !pipe_reader_pids.contains(parts[1]) {
+        if parts.len() < 6 || parts[4] != "PIPE" {
             continue;
         }
+        let Some(stream) = stdio_log_fd(parts[3]) else {
+            continue;
+        };
+        streams
+            .entry(parts[5].to_string())
+            .and_modify(|current| *current = merge_log_fd(*current, stream))
+            .or_insert(stream);
+    }
+    streams
+}
 
-        let fd = parts[3];
-        let Some(path) = regular_file_path(&parts) else {
+fn parse_macos_pipe_reader_fds(
+    raw: &str,
+    target_streams: &HashMap<String, LogFd>,
+) -> Vec<PipeReaderFd> {
+    let mut readers = Vec::new();
+    for line in raw.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 7 || parts[4] != "PIPE" {
+            continue;
+        }
+        let Some(endpoint) = parts.iter().find_map(|part| part.strip_prefix("->")) else {
+            continue;
+        };
+        let Some(&stream) = target_streams.get(endpoint) else {
+            continue;
+        };
+        let Some(fd) = fd_number(parts[3]) else {
+            continue;
+        };
+        let Ok(pid) = parts[1].parse::<u32>() else {
+            continue;
+        };
+        let command = parts[0].to_string();
+        insert_pipe_reader_fd(&mut readers, pid, command, fd, stream);
+    }
+
+    sort_pipe_reader_fds(readers)
+}
+
+fn parse_linux_pipe_reader_fds(raw: &str, target_pid: u32) -> Vec<PipeReaderFd> {
+    let mut readers = Vec::new();
+    let target_pid = target_pid.to_string();
+    for line in raw.lines().skip(1) {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        if parts.len() < 10 || parts[1] != target_pid || parts[4] != "FIFO" || parts[8] != "pipe" {
+            continue;
+        }
+        let Some(stream) = stdio_log_fd(parts[3]) else {
             continue;
         };
 
-        if is_writable_fd(fd) && is_log_like_path(&path) {
+        for endpoint in &parts[9..] {
+            let mut fields = endpoint.splitn(3, ',');
+            let (Some(pid), Some(command), Some(fd)) =
+                (fields.next(), fields.next(), fields.next())
+            else {
+                continue;
+            };
+            if !fd.contains('r') {
+                continue;
+            }
+            let (Ok(pid), Some(fd_number)) = (pid.parse::<u32>(), fd_number(fd)) else {
+                continue;
+            };
+            let command = command.to_string();
+            insert_pipe_reader_fd(&mut readers, pid, command, fd_number, stream);
+        }
+    }
+
+    sort_pipe_reader_fds(readers)
+}
+
+fn insert_pipe_reader_fd(
+    readers: &mut Vec<PipeReaderFd>,
+    pid: u32,
+    command: String,
+    fd: u32,
+    stream: LogFd,
+) {
+    if let Some(reader) = readers
+        .iter_mut()
+        .find(|reader| reader.pid == pid && reader.fd == fd)
+    {
+        reader.stream = merge_log_fd(reader.stream, stream);
+        return;
+    }
+
+    readers.push(PipeReaderFd {
+        pid,
+        command,
+        fd,
+        stream,
+    });
+}
+
+fn merge_log_fd(left: LogFd, right: LogFd) -> LogFd {
+    match (left, right) {
+        (LogFd::Combined, _) | (_, LogFd::Combined) => LogFd::Combined,
+        (LogFd::Stdout, LogFd::Stderr) | (LogFd::Stderr, LogFd::Stdout) => LogFd::Combined,
+        (same, other) if same == other => same,
+        _ => LogFd::Combined,
+    }
+}
+
+fn sort_pipe_reader_fds(mut readers: Vec<PipeReaderFd>) -> Vec<PipeReaderFd> {
+    readers.sort_by(|left, right| {
+        left.pid
+            .cmp(&right.pid)
+            .then_with(|| left.fd.cmp(&right.fd))
+            .then_with(|| log_fd_rank(left.stream).cmp(&log_fd_rank(right.stream)))
+    });
+    readers
+}
+
+fn get_pipe_reader_log_files(readers: &[PipeReaderFd]) -> Vec<LogFile> {
+    let Some(raw) = collect_pipe_reader_lsof_with_limits(
+        readers,
+        LSOF_TIMEOUT,
+        LSOF_MAX_OUTPUT_BYTES,
+        |pid, timeout, max_output_bytes| {
+            run_lsof_fd_lookup_with_limits(Some(pid), false, timeout, max_output_bytes)
+        },
+    ) else {
+        return Vec::new();
+    };
+
+    parse_pipe_reader_log_files(&raw, readers)
+}
+
+fn collect_pipe_reader_lsof_with_limits<F>(
+    readers: &[PipeReaderFd],
+    timeout: Duration,
+    max_output_bytes: usize,
+    mut lookup: F,
+) -> Option<String>
+where
+    F: FnMut(u32, Duration, usize) -> Result<String, LimitedCommandError>,
+{
+    let mut reader_pids = HashSet::new();
+    let mut raw = String::new();
+    let started = Instant::now();
+    for reader in readers {
+        if reader_pids.insert(reader.pid) {
+            let remaining_timeout = timeout.checked_sub(started.elapsed())?;
+            if remaining_timeout.is_zero() {
+                return None;
+            }
+            let separator_bytes = usize::from(!raw.is_empty() && !raw.ends_with('\n'));
+            let remaining_bytes = max_output_bytes
+                .checked_sub(raw.len())?
+                .checked_sub(separator_bytes)?;
+            if remaining_bytes == 0 {
+                return None;
+            }
+            let reader_raw = lookup(reader.pid, remaining_timeout, remaining_bytes).ok()?;
+            if started.elapsed() > timeout || reader_raw.len() > remaining_bytes {
+                return None;
+            }
+            if separator_bytes == 1 {
+                raw.push('\n');
+            }
+            raw.push_str(&reader_raw);
+        }
+    }
+    Some(raw)
+}
+
+fn parse_pipe_reader_log_files(raw: &str, readers: &[PipeReaderFd]) -> Vec<LogFile> {
+    if readers.is_empty() {
+        return Vec::new();
+    }
+
+    let reader_pids: HashSet<String> = readers
+        .iter()
+        .map(|reader| reader.pid.to_string())
+        .collect();
+    let candidates: Vec<(u32, u32, PathBuf)> = raw
+        .lines()
+        .skip(1)
+        .filter_map(|line| {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() < 8 || parts[4] != "REG" || !reader_pids.contains(parts[1]) {
+                return None;
+            }
+            let pid = parts[1].parse::<u32>().ok()?;
+            let fd = fd_number(parts[3])?;
+            let path = regular_file_path(&parts)?;
+            (is_writable_fd(parts[3]) && is_log_like_path(&path))
+                .then(|| (pid, fd, PathBuf::from(path)))
+        })
+        .collect();
+
+    let mut files = Vec::new();
+    let mut matched_readers = HashSet::new();
+    let mut matched_files = HashSet::new();
+    for (reader_index, reader) in readers.iter().enumerate() {
+        let adjacent: Vec<(usize, &PathBuf)> = candidates
+            .iter()
+            .enumerate()
+            .filter(|(_, (candidate_pid, file_fd, _))| {
+                *candidate_pid == reader.pid
+                    && file_fd
+                        .checked_add(1)
+                        .is_some_and(|next_fd| next_fd == reader.fd)
+            })
+            .map(|(index, (_, _, path))| (index, path))
+            .collect();
+        if adjacent.len() == 1 {
+            let (file_index, path) = adjacent[0];
+            matched_readers.insert(reader_index);
+            matched_files.insert(file_index);
             files.push(LogFile {
-                path: PathBuf::from(path),
-                fd: LogFd::File,
+                path: path.clone(),
+                fd: reader.stream,
                 kind: LogFileKind::Redirect,
                 priority: 1,
             });
         }
     }
 
-    sort_and_deduplicate_log_files(files)
+    if readers.len() > 1 {
+        if matched_readers.len() != readers.len() || matched_files.len() != readers.len() {
+            return Vec::new();
+        }
+        return sort_and_deduplicate_log_files(files);
+    }
+
+    if candidates.len() == 1 {
+        return vec![LogFile {
+            path: candidates[0].2.clone(),
+            fd: readers[0].stream,
+            kind: LogFileKind::Redirect,
+            priority: 1,
+        }];
+    }
+
+    Vec::new()
 }
 
 fn get_stdio_stream_diagnostic(pid: u32) -> Option<String> {
@@ -360,21 +578,42 @@ fn get_stdio_stream_diagnostic(pid: u32) -> Option<String> {
         return None;
     }
 
-    let target_raw = match run_lsof_limited(&["-p".to_string(), pid.to_string()]) {
+    let target_raw = match run_lsof_fd_lookup(Some(pid), cfg!(target_os = "linux")) {
         Ok(raw) => raw,
         Err(error) => return Some(lsof_inspection_failed_tip(error)),
     };
-    let pipe_ids = parse_lsof_pipe_ids(&target_raw);
-    if pipe_ids.is_empty() {
-        return stdio_stream_log_tip(&target_raw, None);
-    }
-
-    let all_raw = run_lsof_limited(&[]).ok();
-    stdio_stream_log_tip(&target_raw, all_raw.as_deref())
+    let pipe_readers = pipe_reader_processes(&find_pipe_reader_fds(pid, &target_raw));
+    stdio_stream_log_tip(&target_raw, &pipe_readers)
 }
 
-fn run_lsof_limited(args: &[String]) -> Result<String, LimitedCommandError> {
-    run_command_stdout_limited("lsof", args, LSOF_TIMEOUT, LSOF_MAX_OUTPUT_BYTES)
+fn run_lsof_fd_lookup(
+    pid: Option<u32>,
+    include_endpoints: bool,
+) -> Result<String, LimitedCommandError> {
+    run_lsof_fd_lookup_with_limits(pid, include_endpoints, LSOF_TIMEOUT, LSOF_MAX_OUTPUT_BYTES)
+}
+
+fn run_lsof_fd_lookup_with_limits(
+    pid: Option<u32>,
+    include_endpoints: bool,
+    timeout: Duration,
+    max_output_bytes: usize,
+) -> Result<String, LimitedCommandError> {
+    let args = lsof_fd_lookup_args(pid, include_endpoints);
+    run_command_stdout_limited("lsof", &args, timeout, max_output_bytes)
+}
+
+fn lsof_fd_lookup_args(pid: Option<u32>, include_endpoints: bool) -> Vec<String> {
+    let mut args = Vec::new();
+    if include_endpoints {
+        args.push("+E".to_string());
+    }
+    args.extend(["-nP".to_string(), "-a".to_string()]);
+    if let Some(pid) = pid {
+        args.extend(["-p".to_string(), pid.to_string()]);
+    }
+    args.extend(["-d".to_string(), LSOF_NUMERIC_FD_RANGE.to_string()]);
+    args
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -472,13 +711,9 @@ fn run_command_stdout_limited(
     Ok(String::from_utf8_lossy(&output).to_string())
 }
 
-fn stdio_stream_log_tip(target_raw: &str, all_lsof_raw: Option<&str>) -> Option<String> {
-    let pipe_ids = parse_lsof_pipe_ids(target_raw);
-    if !pipe_ids.is_empty() {
-        let readers = all_lsof_raw
-            .map(|raw| parse_pipe_reader_processes(raw, &pipe_ids))
-            .unwrap_or_default();
-        return pipe_reader_log_tip(&readers).or_else(|| Some(generic_pipe_log_tip()));
+fn stdio_stream_log_tip(target_raw: &str, readers: &[PipeReader]) -> Option<String> {
+    if has_stdio_pipe(target_raw) {
+        return pipe_reader_log_tip(readers).or_else(|| Some(generic_pipe_log_tip()));
     }
 
     let terminal_devices = parse_stdio_terminal_devices(target_raw);
@@ -489,32 +724,22 @@ fn stdio_stream_log_tip(target_raw: &str, all_lsof_raw: Option<&str>) -> Option<
     None
 }
 
-fn parse_pipe_reader_processes(raw: &str, pipe_ids: &HashSet<String>) -> Vec<PipeReader> {
-    if pipe_ids.is_empty() {
-        return Vec::new();
-    }
+fn has_stdio_pipe(raw: &str) -> bool {
+    raw.lines().skip(1).any(|line| {
+        let parts: Vec<&str> = line.split_whitespace().collect();
+        parts.len() >= 6 && matches!(parts[4], "PIPE" | "FIFO") && stdio_log_fd(parts[3]).is_some()
+    })
+}
 
+fn pipe_reader_processes(reader_fds: &[PipeReaderFd]) -> Vec<PipeReader> {
     let mut seen = HashSet::new();
     let mut readers = Vec::new();
-    for line in raw.lines().skip(1) {
-        let parts: Vec<&str> = line.split_whitespace().collect();
-        if parts.len() < 7 || parts[4] != "PIPE" {
-            continue;
-        }
-
-        let Some(endpoint) = parts.iter().find_map(|part| part.strip_prefix("->")) else {
-            continue;
-        };
-        if !pipe_ids.contains(endpoint) {
-            continue;
-        }
-
-        let Ok(pid) = parts[1].parse::<u32>() else {
-            continue;
-        };
-        let command = parts[0].to_string();
-        if seen.insert((pid, command.clone())) {
-            readers.push(PipeReader { pid, command });
+    for reader in reader_fds {
+        if seen.insert((reader.pid, reader.command.clone())) {
+            readers.push(PipeReader {
+                pid: reader.pid,
+                command: reader.command.clone(),
+            });
         }
     }
 
@@ -616,6 +841,14 @@ fn fd_number(fd: &str) -> Option<u32> {
 
 fn is_writable_fd(fd: &str) -> bool {
     fd.contains('w') || fd.contains('u')
+}
+
+fn stdio_log_fd(fd: &str) -> Option<LogFd> {
+    match fd_number(fd) {
+        Some(1) => Some(LogFd::Stdout),
+        Some(2) => Some(LogFd::Stderr),
+        _ => None,
+    }
 }
 
 pub fn is_log_like_path(path: &str) -> bool {
@@ -880,7 +1113,7 @@ fn stderr_log_file(log_files: &[LogFile]) -> Option<&LogFile> {
 
 fn log_fd_rank(fd: LogFd) -> u8 {
     match fd {
-        LogFd::Stdout => 0,
+        LogFd::Stdout | LogFd::Combined => 0,
         LogFd::Stderr => 1,
         LogFd::File => 2,
     }
@@ -1463,6 +1696,7 @@ fn log_file_label(file: &LogFile) -> &'static str {
     match file.fd {
         LogFd::Stdout => "stdout",
         LogFd::Stderr => "stderr",
+        LogFd::Combined => "stdout/stderr",
         LogFd::File => "log",
     }
 }
@@ -1635,88 +1869,373 @@ codex   78441 user    1w   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0
     }
 
     #[test]
-    fn parses_pipe_endpoint_written_by_tee_to_log_file() {
+    fn parses_macos_target_streams_and_pipe_readers() {
         let target_raw = "\
 COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-java    68388 user    1   PIPE 0xaaaa    16384      ->0xbbbb
-java    68388 user    2   PIPE 0xaaaa    16384      ->0xbbbb
+python3.1 68720 user    1   PIPE 0xbackendout 16384 ->0xreaderout
+python3.1 68720 user    2   PIPE 0xbackenderr 16384 ->0xreadererr
 ";
         let peer_raw = "\
 COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-tee     68361 user    0   PIPE 0xbbbb    16384      ->0xaaaa
-tee     68361 user    1u   CHR   16,34    0t57550   /dev/ttys034
-tee     68361 user    3w   REG   1,15    116166    /private/tmp/nori-backend.log
+python3.1 68717 user    5   PIPE 0xreaderout 16384 ->0xbackendout
+python3.1 68717 user    7   PIPE 0xreadererr 16384 ->0xbackenderr
+python3.1 68717 user   13   PIPE 0xfrontout 16384 ->0xfrontendout
 ";
 
-        let pipe_ids = parse_lsof_pipe_ids(target_raw);
-        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
+        let streams = parse_macos_target_pipe_streams(target_raw);
+        let readers = parse_macos_pipe_reader_fds(peer_raw, &streams);
 
-        assert_eq!(pipe_ids, HashSet::from(["0xaaaa".to_string()]));
-        assert_eq!(files.len(), 1);
         assert_eq!(
-            files[0].path,
-            PathBuf::from("/private/tmp/nori-backend.log")
+            streams,
+            HashMap::from([
+                ("0xbackendout".to_string(), LogFd::Stdout),
+                ("0xbackenderr".to_string(), LogFd::Stderr),
+            ])
         );
-        assert_eq!(files[0].fd, LogFd::File);
-        assert_eq!(files[0].kind, LogFileKind::Redirect);
-    }
-
-    #[test]
-    fn parses_pipe_writer_read_write_log_file() {
-        let pipe_ids = HashSet::from(["0xaaaa".to_string()]);
-        let peer_raw = "\
-COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-tee     68361 user    0   PIPE 0xbbbb    16384      ->0xaaaa
-tee     68361 user    3u   REG   1,15    116166    /private/tmp/nori-backend.log
-";
-
-        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
-
-        assert_eq!(files.len(), 1);
         assert_eq!(
-            files[0].path,
-            PathBuf::from("/private/tmp/nori-backend.log")
+            readers,
+            vec![
+                PipeReaderFd {
+                    pid: 68717,
+                    command: "python3.1".to_string(),
+                    fd: 5,
+                    stream: LogFd::Stdout,
+                },
+                PipeReaderFd {
+                    pid: 68717,
+                    command: "python3.1".to_string(),
+                    fd: 7,
+                    stream: LogFd::Stderr,
+                },
+            ]
         );
     }
 
     #[test]
-    fn ignores_pipe_writers_for_unrelated_pipe_ids() {
-        let pipe_ids = HashSet::from(["0xaaaa".to_string()]);
+    fn merges_macos_stdout_and_stderr_that_share_one_pipe_reader() {
+        let target_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+python3.1 68720 user    1   PIPE 0xbackend 16384 ->0xreader
+python3.1 68720 user    2   PIPE 0xbackend 16384 ->0xreader
+";
         let peer_raw = "\
 COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-tee     68361 user    0   PIPE 0xbbbb    16384      ->0xcccc
-tee     68361 user    3w   REG   1,15    116166    /private/tmp/nori-backend.log
+tee     68717 user    0   PIPE 0xreader 16384 ->0xbackend
 ";
 
-        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
+        let streams = parse_macos_target_pipe_streams(target_raw);
+        let readers = parse_macos_pipe_reader_fds(peer_raw, &streams);
+
+        assert_eq!(
+            streams,
+            HashMap::from([("0xbackend".to_string(), LogFd::Combined)])
+        );
+        assert_eq!(
+            readers,
+            vec![PipeReaderFd {
+                pid: 68717,
+                command: "tee".to_string(),
+                fd: 0,
+                stream: LogFd::Combined,
+            }]
+        );
+    }
+
+    #[test]
+    fn parses_linux_fifo_endpoints_with_target_streams() {
+        let target_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+python3 68720 user    1w  FIFO   0,15      0t0 390231 pipe 68717,supervis,5r 68719,python3,1w
+python3 68720 user    2w  FIFO   0,15      0t0 390232 pipe 68717,supervis,7r
+supervis 68717 user    1w  FIFO   0,15      0t0 390999 pipe 99999,other,0r
+";
+
+        let readers = parse_linux_pipe_reader_fds(target_raw, 68720);
+
+        assert_eq!(
+            readers,
+            vec![
+                PipeReaderFd {
+                    pid: 68717,
+                    command: "supervis".to_string(),
+                    fd: 5,
+                    stream: LogFd::Stdout,
+                },
+                PipeReaderFd {
+                    pid: 68717,
+                    command: "supervis".to_string(),
+                    fd: 7,
+                    stream: LogFd::Stderr,
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn merges_linux_stdout_and_stderr_that_share_one_fifo_reader() {
+        let target_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+python3 68720 user    1w  FIFO   0,15      0t0 390231 pipe 68717,tee,0r
+python3 68720 user    2w  FIFO   0,15      0t0 390231 pipe 68717,tee,0r
+";
+
+        let readers = parse_linux_pipe_reader_fds(target_raw, 68720);
+
+        assert_eq!(
+            readers,
+            vec![PipeReaderFd {
+                pid: 68717,
+                command: "tee".to_string(),
+                fd: 0,
+                stream: LogFd::Combined,
+            }]
+        );
+    }
+
+    #[test]
+    fn assigns_streams_from_pipe_structure_not_log_file_names() {
+        let readers = vec![
+            PipeReaderFd {
+                pid: 68717,
+                command: "supervis".to_string(),
+                fd: 5,
+                stream: LogFd::Stdout,
+            },
+            PipeReaderFd {
+                pid: 68717,
+                command: "supervis".to_string(),
+                fd: 7,
+                stream: LogFd::Stderr,
+            },
+        ];
+        let reader_raw = "\
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+supervis 68717 user    4w   REG   1,14     4606 1001 /repo/runtime-logs/run/app.log
+supervis 68717 user    6w   REG   1,14        0 1002 /repo/runtime-logs/run/error.log
+supervis 68717 user   12w   REG   1,14      887 1003 /repo/runtime-logs/run/frontend.log
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
+
+        assert_eq!(files.len(), 2);
+        assert_eq!(
+            files[0].path,
+            PathBuf::from("/repo/runtime-logs/run/app.log")
+        );
+        assert_eq!(files[0].fd, LogFd::Stdout);
+        assert_eq!(
+            files[1].path,
+            PathBuf::from("/repo/runtime-logs/run/error.log")
+        );
+        assert_eq!(files[1].fd, LogFd::Stderr);
+    }
+
+    #[test]
+    fn keeps_single_unpaired_tee_log_compatible() {
+        let readers = vec![PipeReaderFd {
+            pid: 68361,
+            command: "tee".to_string(),
+            fd: 0,
+            stream: LogFd::Stdout,
+        }];
+        let reader_raw = "\
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+tee       68361 user    3u   REG   1,15   116166 1001 /private/tmp/service.log
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, PathBuf::from("/private/tmp/service.log"));
+        assert_eq!(files[0].fd, LogFd::Stdout);
+    }
+
+    #[test]
+    fn keeps_combined_stream_identity_for_one_shared_tee_log() {
+        let readers = vec![PipeReaderFd {
+            pid: 68361,
+            command: "tee".to_string(),
+            fd: 0,
+            stream: LogFd::Combined,
+        }];
+        let reader_raw = "\
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+tee       68361 user    3u   REG   1,15   116166 1001 /private/tmp/service.log
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
+
+        assert_eq!(files.len(), 1);
+        assert_eq!(files[0].path, PathBuf::from("/private/tmp/service.log"));
+        assert_eq!(files[0].fd, LogFd::Combined);
+    }
+
+    #[test]
+    fn ignores_ambiguous_unpaired_supervisor_logs() {
+        let readers = vec![PipeReaderFd {
+            pid: 68717,
+            command: "supervis".to_string(),
+            fd: 20,
+            stream: LogFd::Stdout,
+        }];
+        let reader_raw = "\
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+supervis 68717 user    4w   REG   1,14     4606 1001 /repo/runtime-logs/run/backend.log
+supervis 68717 user    8w   REG   1,14      887 1002 /repo/runtime-logs/run/frontend.log
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
 
         assert!(files.is_empty());
     }
 
     #[test]
-    fn ignores_pipe_writers_without_log_like_output_files() {
-        let pipe_ids = HashSet::from(["0xaaaa".to_string()]);
-        let peer_raw = "\
-COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-tee     68361 user    0   PIPE 0xbbbb    16384      ->0xaaaa
-tee     68361 user    3w   REG   1,15    116166    /Users/me/output.txt
+    fn rejects_partial_reverse_fd_pairing_instead_of_swapping_streams() {
+        let readers = vec![
+            PipeReaderFd {
+                pid: 68717,
+                command: "supervis".to_string(),
+                fd: 3,
+                stream: LogFd::Stdout,
+            },
+            PipeReaderFd {
+                pid: 68717,
+                command: "supervis".to_string(),
+                fd: 5,
+                stream: LogFd::Stderr,
+            },
+        ];
+        let reader_raw = "\
+COMMAND     PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+supervis 68717 user    4w   REG   1,14     4606 1001 /repo/runtime-logs/run/app.log
+supervis 68717 user    6w   REG   1,14        0 1002 /repo/runtime-logs/run/error.log
 ";
 
-        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
 
         assert!(files.is_empty());
     }
 
     #[test]
-    fn ignores_codex_pipe_reader_lock_files() {
-        let pipe_ids = HashSet::from(["0x7bbd83a94dd23494".to_string()]);
-        let peer_raw = "\
+    fn rejects_per_process_fallback_for_split_unpaired_stream_readers() {
+        let readers = vec![
+            PipeReaderFd {
+                pid: 70001,
+                command: "outpump".to_string(),
+                fd: 20,
+                stream: LogFd::Stdout,
+            },
+            PipeReaderFd {
+                pid: 70002,
+                command: "errpump".to_string(),
+                fd: 30,
+                stream: LogFd::Stderr,
+            },
+        ];
+        let reader_raw = "\
 COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-codex   78441 user  132   PIPE 0xec23d4f1a323fe98 16384 ->0x7bbd83a94dd23494
-codex   78441 user    3u   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0/codex-arg0bagHYT/.lock
+outpump 70001 user    4w   REG   1,14     4606 1001 /repo/runtime-logs/run/app.log
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+errpump 70002 user    8w   REG   1,14        0 1002 /repo/runtime-logs/run/error.log
 ";
 
-        let files = parse_pipe_writer_log_files(peer_raw, &pipe_ids);
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn rejects_cross_process_fd_adjacency() {
+        let readers = vec![
+            PipeReaderFd {
+                pid: 70001,
+                command: "outpump".to_string(),
+                fd: 5,
+                stream: LogFd::Stdout,
+            },
+            PipeReaderFd {
+                pid: 70002,
+                command: "errpump".to_string(),
+                fd: 7,
+                stream: LogFd::Stderr,
+            },
+        ];
+        let reader_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+outpump 70001 user    6w   REG   1,14     4606 1001 /repo/runtime-logs/run/app.log
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+errpump 70002 user    4w   REG   1,14        0 1002 /repo/runtime-logs/run/error.log
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn bounds_aggregate_pipe_reader_lsof_output() {
+        let readers = vec![
+            PipeReaderFd {
+                pid: 70001,
+                command: "outpump".to_string(),
+                fd: 5,
+                stream: LogFd::Stdout,
+            },
+            PipeReaderFd {
+                pid: 70002,
+                command: "errpump".to_string(),
+                fd: 7,
+                stream: LogFd::Stderr,
+            },
+        ];
+        let mut calls = 0;
+
+        let raw = collect_pipe_reader_lsof_with_limits(
+            &readers,
+            Duration::from_secs(1),
+            12,
+            |_, _, _| {
+                calls += 1;
+                Ok("1234567".to_string())
+            },
+        );
+
+        assert!(raw.is_none());
+        assert_eq!(calls, 2);
+    }
+
+    #[test]
+    fn ignores_reader_files_from_unrelated_processes() {
+        let readers = vec![PipeReaderFd {
+            pid: 68717,
+            command: "supervis".to_string(),
+            fd: 5,
+            stream: LogFd::Stdout,
+        }];
+        let reader_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+other   99999 user    4w   REG   1,15   116166 1001 /private/tmp/other.log
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
+
+        assert!(files.is_empty());
+    }
+
+    #[test]
+    fn ignores_pipe_reader_control_files() {
+        let readers = vec![PipeReaderFd {
+            pid: 78441,
+            command: "runner".to_string(),
+            fd: 4,
+            stream: LogFd::Stdout,
+        }];
+        let reader_raw = "\
+COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
+runner  78441 user    3u   REG   1,15      0 81079970 /Users/dev/.runner/tmp/task/.lock
+";
+
+        let files = parse_pipe_reader_log_files(reader_raw, &readers);
 
         assert!(files.is_empty());
     }
@@ -1729,7 +2248,7 @@ java    75495 gaossr    1u   CHR   16,2   0t11281 3353 /dev/ttys002
 java    75495 gaossr    2u   CHR   16,2   0t11281 3353 /dev/ttys002
 ";
 
-        let diagnostic = stdio_stream_log_tip(target_raw, None).expect("diagnostic");
+        let diagnostic = stdio_stream_log_tip(target_raw, &[]).expect("diagnostic");
 
         assert!(diagnostic.contains("terminal/PTY"));
         assert!(diagnostic.contains("/dev/ttys002"));
@@ -1747,7 +2266,7 @@ java    68388 user    1   PIPE 0xaaaa    16384      ->0xbbbb
 java    68388 user    2   PIPE 0xaaaa    16384      ->0xbbbb
 ";
 
-        let diagnostic = stdio_stream_log_tip(target_raw, None).expect("diagnostic");
+        let diagnostic = stdio_stream_log_tip(target_raw, &[]).expect("diagnostic");
 
         assert!(diagnostic.contains("stdout/stderr is attached to a pipe"));
         assert!(diagnostic.contains("not replayable"));
@@ -1757,21 +2276,29 @@ java    68388 user    2   PIPE 0xaaaa    16384      ->0xbbbb
     }
 
     #[test]
-    fn parses_pipe_reader_processes_for_target_pipe() {
-        let pipe_ids = HashSet::from(["0x7bbd83a94dd23494".to_string()]);
-        let peer_raw = "\
-COMMAND   PID USER   FD   TYPE DEVICE SIZE/OFF NODE NAME
-codex   78441 user  132   PIPE 0xec23d4f1a323fe98 16384 ->0x7bbd83a94dd23494
-tail    98725 user    3r   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0/codex-arg0bagHYT/.lock
-";
+    fn deduplicates_pipe_reader_processes_from_stream_descriptors() {
+        let reader_fds = vec![
+            PipeReaderFd {
+                pid: 78441,
+                command: "runner".to_string(),
+                fd: 5,
+                stream: LogFd::Stdout,
+            },
+            PipeReaderFd {
+                pid: 78441,
+                command: "runner".to_string(),
+                fd: 7,
+                stream: LogFd::Stderr,
+            },
+        ];
 
-        let readers = parse_pipe_reader_processes(peer_raw, &pipe_ids);
+        let readers = pipe_reader_processes(&reader_fds);
 
         assert_eq!(
             readers,
             vec![PipeReader {
                 pid: 78441,
-                command: "codex".to_string(),
+                command: "runner".to_string(),
             }]
         );
     }
@@ -1799,6 +2326,22 @@ tail    98725 user    3r   REG   1,15      0 81079970 /Users/dev/.codex/tmp/arg0
         assert!(diagnostic.contains("command timed out"));
         assert!(diagnostic.contains(".dev-logs/service.log"));
         assert!(!diagnostic.contains("system log"));
+    }
+
+    #[test]
+    fn lsof_fd_lookup_args_exclude_non_descriptor_records() {
+        assert_eq!(
+            lsof_fd_lookup_args(None, false),
+            strings(["-nP", "-a", "-d", "0-2147483647"])
+        );
+        assert_eq!(
+            lsof_fd_lookup_args(Some(68720), false),
+            strings(["-nP", "-a", "-p", "68720", "-d", "0-2147483647"])
+        );
+        assert_eq!(
+            lsof_fd_lookup_args(Some(68720), true),
+            strings(["+E", "-nP", "-a", "-p", "68720", "-d", "0-2147483647"])
+        );
     }
 
     #[cfg(unix)]
@@ -2080,6 +2623,20 @@ node    42872 user    2w   REG   1,18      640 1234 /tmp/dev.log
 
         assert_eq!(selected.fd, LogFd::Stderr);
         assert_eq!(selected.path, PathBuf::from("/tmp/app.stderr"));
+    }
+
+    #[test]
+    fn stderr_flag_rejects_combined_redirect() {
+        let files = vec![LogFile {
+            path: PathBuf::from("/tmp/combined.log"),
+            fd: LogFd::Combined,
+            kind: LogFileKind::Redirect,
+            priority: 1,
+        }];
+
+        let selected = stderr_log_file(&files);
+
+        assert!(selected.is_none());
     }
 
     #[test]

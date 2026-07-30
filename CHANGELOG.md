@@ -6,6 +6,16 @@ This project follows semantic versioning while it is in early `0.x` releases:
 minor versions may still refine behavior, but published install surfaces should
 remain honest about platform support.
 
+## 0.1.24 - 2026-07-30
+
+### Fixed
+
+- Fixed `ports logs <port|pid>` so supervised services can resolve the exact
+  file-backed stdout/stderr log even when unrelated system `lsof` output
+  exceeds Kiri's safety limit.
+- Avoided selecting another component's log when one supervisor captures
+  output from multiple services.
+
 ## 0.1.23 - 2026-07-29
 
 ### Fixed
