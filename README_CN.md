@@ -34,6 +34,10 @@
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
+<p align="center">
+  <a href="https://gitcode.com/GaoSSR/Kiri"><img alt="AtomGit" src="https://gitcode.com/GaoSSR/Kiri/star/new_badge.svg" width="100" /></a>
+</p>
+
 ## Kiri 简介
 
 Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。

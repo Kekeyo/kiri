@@ -34,6 +34,10 @@
   <img alt="ライセンス：Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
 </p>
 
+<p align="center">
+  <a href="https://gitcode.com/GaoSSR/Kiri"><img alt="AtomGit" src="https://gitcode.com/GaoSSR/Kiri/star/new_badge.svg" width="100" /></a>
+</p>
+
 ## Kiri の概要
 
 Kiri は、Rust 製の高性能なローカル開発ポート管理 CLI です。どのローカルサービスが動作しているか、どのポートを使用しているかをすばやく確認し、必要に応じてポートに紐づくプロセスを操作できます。
