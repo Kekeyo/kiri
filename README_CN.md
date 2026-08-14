@@ -35,7 +35,7 @@
 </p>
 
 <p align="center">
-  <a href="https://gitcode.com/GaoSSR/Kiri"><img alt="AtomGit" src="https://gitcode.com/GaoSSR/Kiri/star/new_badge.svg" width="100" /></a>
+  <a href="https://gitcode.com/GaoSSR/Kiri"><img alt="AtomGit" src="https://gitcode.com/GaoSSR/Kiri/star/new_badge.svg" width="200" /></a>
 </p>
 
 ## Kiri 简介
