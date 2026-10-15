@@ -1,169 +1,124 @@
-<h4 align="right"><a href="./README.md">English</a> | <strong><a href="./README_CN.md">简体中文</a></strong> | <a href="./README_JA.md">日本語</a></h4>
+<h4 align="right"><a href="./README.md">English</a> | <strong><a href="./README_CN.md">简体中文</a></strong></h4>
 
-<p>
+<p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
-    <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="430">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
+    <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="74">
   </picture>
 </p>
 
-<br />
-<br />
+<h3 align="center"><nobr>🦊 Kiri Launchpad · 本地开发服务管控与极速端口中枢 (Web Dashboard & CLI)</nobr></h3>
 
 <p align="center">
-  <a href="https://github.com/GaoSSR/Kiri">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
-      <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="74">
-    </picture>
-  </a>
+  现代化的本地开发服务启动台、可视化端口管控面板与智能防撞中枢。集服务极速拉起、重启、终止、文件夹卡片折叠、物理文件模式直通与毫秒级端口监视于一体。
 </p>
-
-<br clear="right" />
-
-<h3 align="center"><nobr>由 Rust 语言所驱动的管理本地开发端口的高性能 CLI</nobr></h3>
 
 ---
 
 <p align="center">
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
-  <img alt="MacOS Linux Windows supported" src="https://img.shields.io/badge/MacOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
-  <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
-  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen" />
+  <img alt="Web Dashboard" src="https://img.shields.io/badge/Dashboard-Web%20GUI-blue" />
+  <img alt="Core" src="https://img.shields.io/badge/Engine-Python%20%7C%20Rust-orange" />
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-purple" />
 </p>
 
 <p align="center">
-  <a href="https://gitcode.com/GaoSSR/Kiri"><img alt="AtomGit" src="https://gitcode.com/GaoSSR/Kiri/star/new_badge.svg" width="200" /></a>
+  <img src="assets/readme/launchpad-overview.png" alt="Kiri Launchpad 启动台全景预览" width="960" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
 </p>
 
-## Kiri 简介
+---
 
-Kiri 是一款由 Rust 语言所驱动的管理本地开发端口的高性能 CLI，它帮助你快速看清本地开发启动了哪些服务、占用了哪些端口，并在需要时处理端口背后的进程。
+## ✨ 核心特性概览 (Key Features)
 
-输入 `ports` 后，Kiri 会展示本地开发服务概览，包括端口、进程、PID、内存占用、项目、识别到的框架、运行时间和健康状态。
+### 1. 🚀 启动台 · 服务管控与启动记录 (Launchpad)
+- **单行四卡极简布局 (Compact View)**：信息密度与优雅并重，严格约束网格布局，杜绝屏幕横向溢出；
+- **高频操作四键集成**：每个卡片配备单键极速操作：
+  - `▷ 启动`：在独立控制台运行配置命令行，并在端口监听就绪后**自动调用默认浏览器秒开网页**；
+  - `🔄 重启`：释放旧进程并平滑拉起新实例，自动重新打开网页；
+  - `⏸ 暂停/停止`：一键精准终止服务进程（taskkill / kill）；
+  - `📁 文件`：**“文件模式”**直达物理磁盘目录。
+- **📁 文件夹折叠卡片 (Folder Cards)**：
+  - 拖拽卡片悬停长按 400ms，即可将从属服务折叠收纳为文件夹卡片（第一排为主服务，第二排为从属服务）；
+  - 第二排采用高密度**子端口胶囊 (`:3200` `:3300`) 并排呈现**，带有实时健康灯（🟢/⚪）；
+  - **向外拖拽解散**：按住 `:3200` 胶囊往卡片外任意位置一拖一松手，瞬间解散移出文件夹，还原为独立卡片；亦可点击胶囊上的红色 `×` 一键移出。
 
-<p align="center">
-  <img src="assets/readme/ports-overview.png" alt="Kiri 端口概览" width="880">
-</p>
+### 2. 📂 物理“文件模式” (File Mode & Directory Opus 优先直通)
+- **精准高亮定位**：无论是启动台卡片、进程列表还是监控表格，点击“文件”按键，系统将直接唤醒文件管理器并**精准高亮选中（Select/Focus）**目标项目目录，而非仅仅打开普通上级文件夹；
+- **Directory Opus 物理屏幕穿透**：系统若安装有专业文件管理器 Directory Opus，优先调用 `dopusrt.exe` 直通并穿透 `WinSta0\Default` 物理交互桌面，确保置顶弹窗；未安装时优雅降级为 Windows Explorer 资源管理器。
 
-输入 `ports logs <port|pid> -f` 后，Kiri 会持续监听对应进程的日志，并用彩色 ANSI 高亮时间、日志级别、PID、traceId、类名、HTTP 状态和结构化字段，让密集日志更容易读。
+### 3. 📈 服务监控与端口变动流 (Service Monitor)
+- **毫秒级内核采集**：纯 Win32 内核级 PEB 读取与端口匹配，~70ms 极速扫描；
+- **全方位实时指标**：监听端口、进程名称、PID、物理内存占用 (WorkingSet)、识别到的框架 (Vite/FastAPI/Python/Node等)、存活运行时长、健康状态；
+- **📡 变动事件流 (Watch Stream)**：实时记录服务启动 (`STARTED`)、停止 (`STOPPED`) 与端口释放流水；
+- **💻 原生 CLI 终端视图**：内置终端 ASCII 表格与控制台日志追踪。
 
-<p align="center">
-  <img src="assets/readme/logs-follow.png" alt="Kiri 彩色日志监听" width="880">
-</p>
+### 4. 📋 端口防撞档案 (Port Anti-Collision Registry)
+- **全生命周期端口档案簿**：自动沉淀本机曾经使用的开发端口，支持自定义备注与别名修改；
+- **✨ 推荐无冲突可用端口**：结合当前监听状态与历史分配，智能动态推荐连续可用未冲突端口号。
 
-## 认识 Kiri
+### 5. ⚡ 批处理与日常维护任务 (Batch Tasks)
+- 启动台底部集成日常批处理任务面板（如 Rust 内核构建 `cargo build`、缓存清理等），支持配置独立工作目录与执行命令，一键异步触发并实时反馈运行状态。
 
-默认 `ports` 终端视图会先显示一个可爱的 Kiri ASCII Logo，然后再展示端口表：
+---
+
+## ⚡ 极速开箱使用 (Quick Start)
+
+### 方式一：Windows 一键双击直达（推荐）
+直接双击根目录下的批处理脚本：
+```bash
+双击打开Kiri.bat
+```
+脚本将自动检测环境、启动轻量服务守护进程并在浏览器中打开控制台：
+👉 **http://127.0.0.1:7788/**
+
+### 方式二：Python 启动
+```bash
+# 启动控制台守护服务
+python kiri_web.py
+
+# 静默后台启动（不自动弹窗浏览器）
+python kiri_web.py --no-browser
+```
+
+### 方式三：Rust 原生 CLI 命令行模式
+如果您只需要在纯命令行终端下查看端口与日志：
+```bash
+cargo run --release -- ports
+# 或者已安装全局命令
+ports
+ports logs <port|pid> -f
+```
+
+---
+
+## 🏗️ 目录结构 (Repository Structure)
 
 ```text
-      .-~~~~-.
-   .-(  ●  ● )-.
-  (  •   ⌣   •  )  Kiri is watching 5 ports, 5 ports active
-   '-.        .-'
-      '------'
+├── web/
+│   └── index.html               # 现代化 Kiri Launchpad Web 控制台纯前端（Century Gothic 标准字系）
+├── kiri_web.py                  # 高性能 Win32 内核端口监控与启动台后端守护服务 (~70ms 采集引擎)
+├── 双击打开Kiri.bat             # Windows 用户开箱即用一键启动脚本
+├── kiri_services.template.json  # 启动台通用配置种子模板（脱敏开箱即用）
+├── src/                         # Kiri 原生 Rust 命令行工具源代码 (CLI 内核)
+│   ├── main.rs
+│   ├── platform/                # Windows / macOS / Linux 进程 PEB 与 CWD 采集实现
+│   └── render/                  # 终端表格渲染与 ANSI 着色器
+├── Cargo.toml                   # Rust 工程配置
+└── AGENTS.md                    # 严格工程规范、排版与“文件模式”规范守则
 ```
 
-## 核心用法
+---
 
-- **快速查看本地开发端口：** `ports`
-- **查看开发后台进程：** `ports ps` 会展示不一定监听端口的开发相关进程，例如 Codex、Claude Code 或其他 AI Coding 工具启动的 MCP Server 进程。它适合用来看内存占用，或者找出端口表里看不到、但还在后台长期运行的工具进程。
-- **快速 Kill 掉端口所对应的进程 / PID：** `ports kill <port>`
-- **持续监听端口所对应进程的日志：** `ports logs <port|pid> -f`
-- **查看所有端口：** `ports --all`
+## 🔒 隐私与安全性规范 (Privacy & Security)
 
-## 安装
+本项目在开源发布时已遵循严格的隐私脱敏红线：
+- 本机实际运行的配置与端口流水（`kiri_services.json`、`port_aliases.json`）已被 `.gitignore` 彻底物理隔离，绝不上传云端；
+- 开源开箱统一由 `kiri_services.template.json` 提供纯净标准示例；
+- 绝无任何个人绝对磁盘路径、API Key 或密钥残留。
 
-Kiri 当前已经发布 MacOS、Linux x64、Windows x64 预编译 release artifacts。可以使用 npm、Homebrew 或 GitHub Release 安装脚本：
+---
 
-```bash
-# npm
-npm install -g @gaossr/kiri@latest
+## 📄 开源许可证 (License)
 
-# MacOS 推荐使用 Homebrew 安装
-brew install gaossr/tap/kiri
-
-# MacOS / Linux 安装脚本
-curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh | bash
-```
-
-Windows 用户可以使用 PowerShell 安装：
-
-```powershell
-irm https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.ps1 | iex
-```
-
-MacOS 推荐使用 Homebrew 安装。npm 和安装脚本使用预编译原生二进制，不会在用户机器上本地编译 Rust。
-
-## 命令
-
-```bash
-ports                       # 快速查看本地开发端口
-ports --all                 # 展示所有监听端口
-ports <port>                # 查看单个端口详情
-ports ps                    # 展示开发后台进程，包括不监听端口的 MCP Server 进程
-ports ps --all              # 展示所有进程
-ports logs <port|pid>          # 查看最近日志后退出
-ports logs <port|pid> -f       # 持续监听端口所对应进程的日志
-ports logs 3000 --lines 10     # 只看最后 10 行后退出
-ports logs 3000 -f --lines 10  # 先看最后 10 行并继续监听
-ports logs 3000 --err          # 只看 stderr
-ports clean                 # 清理孤儿或僵尸开发进程前先询问
-ports watch                 # 监听端口启动和停止事件
-ports kill 3000             # 快速 Kill 掉端口所对应的进程 / PID
-ports kill 3000-3010        # 终止一个端口范围内的监听进程
-ports kill --force 3000     # 使用 SIGKILL 而不是 SIGTERM
-```
-
-## 状态说明
-
-Kiri 在 `ports` 表格里会使用这些状态：
-
-- `healthy`：进程正在运行，并且父进程仍然正常存在。
-- `orphaned`：进程还活着，也可能仍然监听端口，但启动它的父进程已经退出了。这是孤儿进程，不是僵尸进程。
-- `zombie`：进程本身已经结束，但操作系统里还残留着一条没有被父进程回收的进程记录。
-
-实际使用时，看到 `orphaned` 可以理解成：“这个进程还在跑，但原来的启动器已经没了。” 常见场景是关闭终端、IDE 任务、脚本 runner、Codex 会话或 Claude Code 会话后，里面启动的子服务仍然继续运行。
-
-## 平台支持
-
-| 平台 | 状态 |
-| --- | --- |
-| MacOS arm64/x64 | 已支持 |
-| Linux x64 | 已支持 |
-| Windows x64 | 已支持 |
-| Linux arm64 / Windows arm64 | 已规划 |
-
-在 MacOS 上，Kiri 使用 `lsof`、`ps`、`tail`、MacOS `log` 命令，并在 Docker 可用时读取容器端口映射。Linux 使用 `ss`、`ps`、`/proc` 和可选 Docker 元数据。Windows 使用 PowerShell/CIM 和 `Get-NetTCPConnection`；进程工作目录会尽量从可执行文件路径推断。Docker 是可选项；如果 Docker 不可用或没有运行容器，Kiri 会继续正常工作。
-
-`ports` 默认就会渲染 Kiri ASCII Logo 和 ANSI 终端输出，这是产品体验的一部分。`ports logs` 会为常见开发日志格式添加 ANSI 颜色，包括 Java、Python、Go、Node.js、logfmt 和 JSON 日志。对于从终端启动的服务，使用 `.dev-logs/service.log` 这类稳定日志文件，可以让 `ports logs <port|pid> -f` 从另一个进程持续跟随输出。
-
-默认 `ports` 表格仍然只聚焦开发端口，并直接显示 `Mem`，日常查看内存占用不需要再进入更宽的 `ports ps` 进程视图。
-
-## 开发
-
-维护者和贡献者可以从源码运行检查：
-
-```bash
-cargo fmt
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo build --release --bin ports
-scripts/perf-smoke.sh
-scripts/verify-release.sh v0.1.24
-cargo run --bin ports
-cargo run --bin ports -- --all
-cargo run --bin ports -- ps
-```
-
-## 项目资料
-
-- [更新日志](./CHANGELOG.md)
-- [贡献指南](./CONTRIBUTING.md)
-- [安全策略](./SECURITY.md)
-
-## 致谢
-
-Kiri 受到 [port-whisperer](https://github.com/LarsenCundric/port-whisperer) 的启发，尤其是“让本地开发端口更容易被看见、理解和清理”这个产品方向。
+Apache-2.0 License © 2026 Kekeyo & Kiri Contributors.

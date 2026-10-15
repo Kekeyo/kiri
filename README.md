@@ -1,169 +1,123 @@
-<h4 align="right"><strong><a href="./README.md">English</a></strong> | <a href="./README_CN.md">简体中文</a> | <a href="./README_JA.md">日本語</a></h4>
+<h4 align="right"><strong><a href="./README.md">English</a></strong> | <a href="./README_CN.md">简体中文</a></h4>
 
-<p>
+<p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-logo.png">
-    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-logo.png">
-    <img align="right" src="assets/kiri-logo.png" alt="Kiri logo" width="430">
+    <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
+    <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
+    <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="74">
   </picture>
 </p>
 
-<br />
-<br />
+<h3 align="center"><nobr>🦊 Kiri Launchpad · Development Service Hub & Ultra-Fast Port Monitor (Web + CLI)</nobr></h3>
 
 <p align="center">
-  <a href="https://github.com/GaoSSR/Kiri">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="assets/kiri-wordmark-dark.svg">
-      <source media="(prefers-color-scheme: light)" srcset="assets/kiri-wordmark-light.svg">
-      <img src="assets/kiri-wordmark-light.svg" alt="Kiri" height="74">
-    </picture>
-  </a>
+  A modern, high-performance local development service launchpad, visual port control center, and conflict-prevention hub. Features one-click service startup/restart/stop, folder card bundling, physical file mode navigation, and millisecond-level port monitoring.
 </p>
-
-<br clear="right" />
-
-<h3 align="center"><nobr>High-performance local development port management CLI, powered by Rust</nobr></h3>
 
 ---
 
 <p align="center">
-  <img alt="Rust" src="https://img.shields.io/badge/Rust-CLI-orange" />
-  <img alt="MacOS Linux Windows supported" src="https://img.shields.io/badge/MacOS%20%7C%20Linux%20%7C%20Windows-supported-brightgreen" />
-  <img alt="Command: ports" src="https://img.shields.io/badge/command-ports-8A2BE2" />
-  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue" />
+  <img alt="Platform" src="https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-brightgreen" />
+  <img alt="Web Dashboard" src="https://img.shields.io/badge/Dashboard-Web%20GUI-blue" />
+  <img alt="Core" src="https://img.shields.io/badge/Engine-Python%20%7C%20Rust-orange" />
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-purple" />
 </p>
 
 <p align="center">
-  <a href="https://gitcode.com/GaoSSR/Kiri"><img alt="AtomGit" src="https://gitcode.com/GaoSSR/Kiri/star/new_badge.svg" width="200" /></a>
+  <img src="assets/readme/launchpad-overview.png" alt="Kiri Launchpad Overview" width="960" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
 </p>
 
-## Kiri Overview
+---
 
-Kiri is a high-performance CLI for managing local development ports, powered by Rust. It helps you quickly see which local services are running, which ports they use, and handle the process behind a port when needed.
+## ✨ Key Features
 
-Run `ports` to see a focused local development service overview: port, process, PID, memory usage, project name, detected framework, uptime, and health status.
+### 1. 🚀 Service Launchpad & Command Registry
+- **Compact 4-Column Grid**: High information density with crisp Century Gothic typography, designed strictly to prevent horizontal overflow;
+- **Integrated High-Frequency Actions**:
+  - `▷ Start`: Runs configured startup command in an independent console, and **automatically launches default browser** once the port is listening;
+  - `🔄 Restart`: Gracefully terminates old instance, starts fresh process, and re-opens browser;
+  - `⏸ Stop`: One-click process termination (`taskkill` / `kill`);
+  - `📁 Folder`: Jump directly to physical disk location via **"File Mode"**.
+- **📁 Folder Cards (Service Grouping)**:
+  - Drag and hold a card for 400ms over another to bundle into a folder card;
+  - Sub-services rendered in row 2 as sleek **status pills (`:3200`, `:3300`)** with live health indicators (🟢/⚪);
+  - **Drag-Out to Ungroup**: Drag any child port pill outside the card to instantly ungroup back into an independent card. Or click `×` to remove.
 
-<p align="center">
-  <img src="assets/readme/ports-overview.png" alt="Kiri ports overview" width="880">
-</p>
+### 2. 📂 Physical "File Mode" (Directory Opus First-Class Integration)
+- **Target Selection Invariant**: Clicking "Folder" doesn't just open a parent directory; it actively launches the file manager and **highlights/selects the exact target project folder**;
+- **Directory Opus Priority**: Prioritizes `dopusrt.exe` on `WinSta0\Default` physical station for instant foreground popups; falls back cleanly to Windows Explorer.
 
-Run `ports logs <port|pid> -f` to follow the matched process logs. Kiri keeps dense framework output readable with ANSI colors for timestamps, log levels, process IDs, trace IDs, source classes, HTTP values, and structured fields.
+### 3. 📈 Real-Time Service Monitor
+- **~70ms Kernel Engine**: Pure Win32 PEB inspection and TCP socket matching;
+- **Comprehensive Metrics**: Listening port, process name, PID, WorkingSet memory, detected framework (Vite, FastAPI, Python, Node, etc.), uptime, and status;
+- **📡 Event Stream**: Live streaming log of `STARTED` and `STOPPED` events;
+- **💻 Native CLI Terminal View**: Built-in ASCII table and colored log following.
 
-<p align="center">
-  <img src="assets/readme/logs-follow.png" alt="Kiri colored log following" width="880">
-</p>
+### 4. 📋 Port Anti-Collision Registry & Suggested Ports
+- **Lifecycle Port Ledger**: Automatically records every port ever allocated locally, with custom alias editing;
+- **✨ Smart Conflict-Free Recommendations**: Recommends safe, unassigned consecutive ports.
 
-## Meet Kiri
+### 5. ⚡ Batch & Maintenance Tasks
+- Quick-access task runner for build scripts (`cargo build --release`), cache purges, and automated routines with real-time execution feedback.
 
-The default `ports` terminal view opens with a cute Kiri ASCII logo before the port table:
+---
+
+## ⚡ Quick Start
+
+### Option 1: One-Click Windows Launch (Recommended)
+Double-click the batch file in the repository root:
+```bash
+双击打开Kiri.bat
+```
+Automatically launches the lightweight backend daemon and opens your browser:
+👉 **http://127.0.0.1:7788/**
+
+### Option 2: Python Backend
+```bash
+# Start Web daemon
+python kiri_web.py
+
+# Headless / daemon mode (no browser popup)
+python kiri_web.py --no-browser
+```
+
+### Option 3: Rust Native CLI Mode
+If you prefer running directly in the terminal:
+```bash
+cargo run --release -- ports
+# Or if installed globally
+ports
+ports logs <port|pid> -f
+```
+
+---
+
+## 🏗️ Project Architecture
 
 ```text
-      .-~~~~-.
-   .-(  ●  ● )-.
-  (  •   ⌣   •  )  Kiri is watching 5 ports, 5 ports active
-   '-.        .-'
-      '------'
+├── web/
+│   └── index.html               # Modern Kiri Launchpad Web Frontend (Century Gothic standard typography)
+├── kiri_web.py                  # High-performance Win32 port monitor & Launchpad server (~70ms loop)
+├── 双击打开Kiri.bat             # Windows one-click launcher
+├── kiri_services.template.json  # Sanitized service seed template
+├── src/                         # Kiri Native Rust CLI Source Code
+│   ├── main.rs
+│   ├── platform/                # Windows / macOS / Linux PEB & CWD collectors
+│   └── render/                  # ANSI terminal formatter
+├── Cargo.toml                   # Rust crate configuration
+└── AGENTS.md                    # Engineering standards & File Mode protocol
 ```
 
-## Core Usage
+---
 
-- **View local development services and their ports:** `ports`
-- **View developer background processes:** `ports ps` shows development-related processes that may not listen on a port, such as MCP Server processes started by Codex, Claude Code, or other AI coding tools. Use it when you want to see memory usage or find long-running tool processes outside the port table.
-- **Quickly kill the process / PID behind a port:** `ports kill <port>`
-- **Follow logs for the process listening on a port:** `ports logs <port|pid> -f`
-- **View all ports:** `ports --all`
+## 🔒 Privacy & Sanitization
 
-## Install
+This project strictly adheres to open-source privacy standards:
+- Local runtime databases (`kiri_services.json`, `port_aliases.json`) are completely excluded via `.gitignore`;
+- Zero personal machine paths, credentials, or private project directories committed.
 
-Kiri ships prebuilt release artifacts for MacOS, Linux x64, and Windows x64. Install with npm, Homebrew, or the GitHub Release install scripts:
+---
 
-```bash
-# npm
-npm install -g @gaossr/kiri@latest
+## 📄 License
 
-# Recommended on MacOS with Homebrew
-brew install gaossr/tap/kiri
-
-# MacOS / Linux install script
-curl -fsSL https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.sh | bash
-```
-
-Windows users can install with PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/GaoSSR/Kiri/main/scripts/install.ps1 | iex
-```
-
-On MacOS, Homebrew is the recommended install method. npm and the install scripts use prebuilt native binaries and do not compile Rust locally.
-
-## Commands
-
-```bash
-ports                       # view local development services and their ports
-ports --all                 # show all listening ports
-ports <port>                # show details for one port
-ports ps                    # show developer background processes, including MCP Server processes that do not listen on a port
-ports ps --all              # show all processes
-ports logs <port|pid>          # show recent logs and exit
-ports logs <port|pid> -f       # follow logs for the process listening on a port
-ports logs 3000 --lines 10     # show last 10 lines and exit
-ports logs 3000 -f --lines 10  # show last 10 lines and keep following
-ports logs 3000 --err          # stderr only
-ports clean                 # ask before cleaning orphaned/zombie dev processes
-ports watch                 # stream port start/stop events
-ports kill 3000             # quickly kill the process / PID behind a port
-ports kill 3000-3010        # terminate listeners across a range
-ports kill --force 3000     # use SIGKILL instead of SIGTERM
-```
-
-## Status Labels
-
-Kiri uses these status labels in the `ports` table:
-
-- `healthy`: the process is running and still has a normal parent process.
-- `orphaned`: the process is still alive and may still be listening on a port, but the parent process that started it has already exited. This is an orphan process, not a zombie process.
-- `zombie`: the process has already exited, but the operating system still has a leftover process record that has not been reaped by its parent.
-
-In practice, `orphaned` means "this process is still running, but its original launcher is gone." That can happen after closing a terminal, IDE task, script runner, Codex session, or Claude Code session while a child server process keeps running.
-
-## Platform Support
-
-| Platform | Status |
-| --- | --- |
-| MacOS arm64/x64 | Supported |
-| Linux x64 | Supported |
-| Windows x64 | Supported |
-| Linux arm64 / Windows arm64 | Planned |
-
-On MacOS, Kiri uses `lsof`, `ps`, `tail`, MacOS `log` commands, and optional Docker metadata. Linux uses `ss`, `ps`, `/proc`, and optional Docker metadata. Windows uses PowerShell/CIM and `Get-NetTCPConnection`; process working directories are best-effort from executable paths. Docker is optional; if Docker is unavailable or no containers are running, Kiri continues without Docker mappings.
-
-`ports` intentionally renders the Kiri ASCII logo and ANSI terminal output by default. `ports logs` adds ANSI colors for common development log formats, including Java, Python, Go, Node.js, logfmt, and JSON logs. For services started through a terminal, a stable file-backed log such as `.dev-logs/service.log` lets `ports logs <port|pid> -f` follow output from another process.
-
-The default `ports` table stays focused on developer ports and includes `Mem`, so day-to-day checks do not require the broader `ports ps` process view.
-
-## Development
-
-For maintainers and contributors working from source:
-
-```bash
-cargo fmt
-cargo test
-cargo clippy --all-targets -- -D warnings
-cargo build --release --bin ports
-scripts/perf-smoke.sh
-scripts/verify-release.sh v0.1.24
-cargo run --bin ports
-cargo run --bin ports -- --all
-cargo run --bin ports -- ps
-```
-
-## Project Resources
-
-- [Changelog](./CHANGELOG.md)
-- [Contributing guide](./CONTRIBUTING.md)
-- [Security policy](./SECURITY.md)
-
-## Acknowledgements
-
-Kiri was inspired by [port-whisperer](https://github.com/LarsenCundric/port-whisperer), especially the idea of making local development ports easier to see, understand, and clean up.
+Apache-2.0 License © 2026 Kekeyo & Kiri Contributors.
