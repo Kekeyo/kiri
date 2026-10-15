@@ -140,3 +140,22 @@ These guidelines are working if diffs contain fewer unnecessary changes, fewer r
 - Before creating or pushing any release tag, running npm publish, updating the Homebrew tap, or otherwise publishing a new user-facing version, show the local user-visible effect first and get explicit user confirmation.
 - The release preview must include the exact install or run path being validated, such as `ports`, npm global install, Homebrew install, or curl/PowerShell install output.
 - Do not treat passing tests, GitHub Actions, or package dry-runs as enough approval for a release. User-visible CLI output must be aligned with the user first.
+
+## Web Dashboard Typography & UI Standards
+
+- The global default Latin/English font for Kiri Web (`web/index.html`) must always be `"Century Gothic"`.
+- The global sans-serif stack must be defined as:
+  `--font-sans: "Century Gothic", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;`
+- Monospace font stack (used for port numbers, PIDs, raw paths, CLI terminal previews) must be defined as:
+  `--font-mono: "Cascadia Mono", Consolas, monospace;`
+- All interactive controls (buttons, inputs, tabs, modal windows) must inherit `--font-sans` by default so Century Gothic is consistently applied across all English text and labels.
+
+## File Mode ("文件模式") Standards
+
+- **Definition**: The action of navigating / jumping from a port, process, or project entry directly to its underlying physical disk location is officially designated as **"文件模式" (File Mode)**.
+- **Selection Invariant**: In "文件模式", the target item itself must be highlighted/selected inside its container, rather than merely opening a generic parent directory.
+- **Directory Opus Priority**: If Directory Opus (`dopusrt.exe`) is detected on the host machine, all "文件模式" triggers MUST invoke DOpus via:
+  `dopusrt.exe /cmd Go OPENCONTAINER PATH "<target>" NEWTAB=deflister,findexisting TOFRONT`
+  and MUST inject onto `WinSta0\Default` to guarantee an instant foreground window.
+- **Fallback**: Fallback to Windows Explorer (`explorer.exe /select,"<target>"`) only when Directory Opus is not installed or when explicitly requested.
+

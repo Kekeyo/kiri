@@ -1,0 +1,4395 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kiri Web - 本地开发服务启动台与端口监控中心</title>
+  <script>
+    (function () {
+      try {
+        const pref = localStorage.getItem("kiri_theme_preference") || "system";
+        const isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+        const effective = pref === "system" ? (isDark ? "dark" : "light") : pref;
+        document.documentElement.setAttribute("data-theme", effective);
+        document.documentElement.setAttribute("data-theme-preference", pref);
+      } catch (e) {}
+    })();
+  </script>
+  <style>
+    :root {
+      --font-sans: "Century Gothic", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "Cascadia Mono", Consolas, monospace;
+    }
+
+    :root,
+    [data-theme="dark"] {
+      --bg: #0b0f19;
+      --bg-gradient: radial-gradient(circle at top right, #162238 0%, #0b0f19 55%);
+      --sidebar-bg: #0d1424;
+      --card: #131b2e;
+      --card-hover: #19233c;
+      --border: #23304f;
+      --border-subtle: rgba(35, 48, 79, 0.55);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.18);
+      --header-bg: rgba(19, 27, 46, 0.85);
+      --tabs-bg: #0d1322;
+      --th-bg: #0f1626;
+      --tr-hover: rgba(25, 35, 60, 0.6);
+      --input-bg: #090e1a;
+      --toast-bg: #1e293b;
+      --green: #22c55e;
+      --green-glow: rgba(34, 197, 94, 0.18);
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --purple: #a855f7;
+      --badge-empty-bg: rgba(255, 255, 255, 0.04);
+      --badge-custom-bg: rgba(56, 189, 248, 0.15);
+      --badge-custom-color: #38bdf8;
+      --badge-custom-border: rgba(56, 189, 248, 0.35);
+      --badge-auto-bg: rgba(168, 85, 247, 0.15);
+      --badge-auto-color: #c084fc;
+      --badge-auto-border: rgba(168, 85, 247, 0.35);
+      --fw-tag-bg: rgba(168, 85, 247, 0.14);
+      --fw-tag-color: #c084fc;
+      --fw-tag-border: rgba(168, 85, 247, 0.3);
+      --pill-color: var(--accent);
+      --pill-bg: var(--accent-glow);
+      --pill-border: rgba(56, 189, 248, 0.3);
+      --btn-primary-bg: rgba(56, 189, 248, 0.15);
+      --btn-primary-border: rgba(56, 189, 248, 0.45);
+      --btn-primary-color: var(--accent);
+      --btn-success-bg: rgba(34, 197, 94, 0.16);
+      --btn-success-border: rgba(34, 197, 94, 0.45);
+      --btn-success-color: #22c55e;
+      --btn-folder-bg: rgba(56, 189, 248, 0.12);
+      --btn-folder-border: rgba(56, 189, 248, 0.35);
+      --btn-folder-color: var(--accent);
+      --btn-folder-hover-bg: rgba(56, 189, 248, 0.28);
+      --btn-danger-bg: rgba(239, 68, 68, 0.12);
+      --btn-danger-border: rgba(239, 68, 68, 0.35);
+      --btn-danger-color: #f87171;
+      --status-tag-bg: rgba(34, 197, 94, 0.14);
+      --status-tag-color: var(--green);
+      --cli-bg: #070a12;
+      --cli-color: #38bdf8;
+      --modal-card-bg: var(--card);
+      --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      --theme-switch-bg: #0d1322;
+      --theme-btn-active-bg: #1c2640;
+      --code-bg: #080c16;
+    }
+
+    [data-theme="light"] {
+      --bg: #f8fafc;
+      --bg-gradient: radial-gradient(circle at top right, #e2e8f0 0%, #f8fafc 55%);
+      --sidebar-bg: #f1f5f9;
+      --card: #ffffff;
+      --card-hover: #f1f5f9;
+      --border: #e2e8f0;
+      --border-subtle: #f1f5f9;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #0284c7;
+      --accent-glow: rgba(2, 132, 199, 0.12);
+      --header-bg: rgba(255, 255, 255, 0.9);
+      --tabs-bg: #eef2f6;
+      --th-bg: #f8fafc;
+      --tr-hover: rgba(241, 245, 249, 0.8);
+      --input-bg: #ffffff;
+      --toast-bg: #0f172a;
+      --green: #16a34a;
+      --green-glow: rgba(22, 163, 74, 0.12);
+      --red: #dc2626;
+      --amber: #d97706;
+      --purple: #9333ea;
+      --badge-empty-bg: rgba(0, 0, 0, 0.03);
+      --badge-custom-bg: rgba(2, 132, 199, 0.1);
+      --badge-custom-color: #0284c7;
+      --badge-custom-border: rgba(2, 132, 199, 0.3);
+      --badge-auto-bg: rgba(147, 51, 234, 0.1);
+      --badge-auto-color: #9333ea;
+      --badge-auto-border: rgba(147, 51, 234, 0.3);
+      --fw-tag-bg: rgba(147, 51, 234, 0.08);
+      --fw-tag-color: #9333ea;
+      --fw-tag-border: rgba(147, 51, 234, 0.25);
+      --pill-color: #0284c7;
+      --pill-bg: rgba(2, 132, 199, 0.1);
+      --pill-border: rgba(2, 132, 199, 0.25);
+      --btn-primary-bg: rgba(2, 132, 199, 0.1);
+      --btn-primary-border: rgba(2, 132, 199, 0.35);
+      --btn-primary-color: #0284c7;
+      --btn-success-bg: rgba(22, 163, 74, 0.1);
+      --btn-success-border: rgba(22, 163, 74, 0.35);
+      --btn-success-color: #16a34a;
+      --btn-folder-bg: rgba(2, 132, 199, 0.08);
+      --btn-folder-border: rgba(2, 132, 199, 0.25);
+      --btn-folder-color: #0284c7;
+      --btn-folder-hover-bg: rgba(2, 132, 199, 0.18);
+      --btn-danger-bg: rgba(220, 38, 38, 0.08);
+      --btn-danger-border: rgba(220, 38, 38, 0.25);
+      --btn-danger-color: #dc2626;
+      --status-tag-bg: rgba(22, 163, 74, 0.1);
+      --status-tag-color: #16a34a;
+      --cli-bg: #090d16;
+      --cli-color: #38bdf8;
+      --modal-card-bg: #ffffff;
+      --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+      --theme-switch-bg: #e2e8f0;
+      --theme-btn-active-bg: #ffffff;
+      --code-bg: #f1f5f9;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body, button, input, select, textarea {
+      font-family: var(--font-sans);
+    }
+    body {
+      background: var(--bg-gradient);
+      color: var(--text);
+      min-height: 100vh;
+      overflow: hidden;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    /* ===== 全局左右双栏布局 ===== */
+    .app-layout {
+      display: flex;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ===== 左侧导航侧边栏 ===== */
+    .sidebar {
+      width: 240px;
+      min-width: 240px;
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      user-select: none;
+      z-index: 20;
+      transition: width 0.22s cubic-bezier(0.2, 0, 0, 1), min-width 0.22s cubic-bezier(0.2, 0, 0, 1);
+      position: relative;
+    }
+
+    /* 折叠态 (Collapsed) */
+    .sidebar.collapsed {
+      width: 68px;
+      min-width: 68px;
+    }
+
+    .sidebar-header {
+      padding: 16px 14px 14px 14px;
+      border-bottom: 1px solid var(--border);
+      transition: padding 0.22s ease;
+    }
+
+    .sidebar-header-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .brand-text {
+      min-width: 0;
+      overflow: hidden;
+      transition: opacity 0.15s ease;
+    }
+
+    .brand-icon {
+      font-size: 24px;
+      width: 38px;
+      height: 38px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      flex-shrink: 0;
+    }
+
+    .brand-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.2px;
+      line-height: 1.2;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .sidebar-collapse-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      flex-shrink: 0;
+      transition: all 0.15s ease;
+    }
+
+    .sidebar-collapse-btn:hover {
+      background: var(--card-hover);
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .sidebar-collapse-btn svg {
+      transition: transform 0.22s ease;
+    }
+
+    /* 折叠状态下的头部响应 */
+    .sidebar.collapsed .sidebar-header {
+      padding: 14px 8px 12px 8px;
+    }
+
+    .sidebar.collapsed .sidebar-header-top {
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .sidebar.collapsed .brand-box {
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+
+    .sidebar.collapsed .brand-text {
+      display: none;
+    }
+
+    .sidebar.collapsed .sidebar-collapse-btn svg {
+      transform: rotate(180deg);
+    }
+
+    .sidebar.collapsed .sidebar-badges {
+      display: none;
+    }
+
+    /* 折叠状态下的导航区域 */
+    .sidebar.collapsed .nav-label {
+      font-size: 0;
+      height: 1px;
+      margin: 8px 6px;
+      padding: 0;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .sidebar.collapsed .nav-item {
+      padding: 10px 0;
+      justify-content: center;
+      position: relative;
+    }
+
+    .sidebar.collapsed .nav-item-left {
+      justify-content: center;
+      gap: 0;
+    }
+
+    .sidebar.collapsed .nav-item-left span:last-child {
+      display: none;
+    }
+
+    .sidebar.collapsed .nav-item-left span:first-child {
+      font-size: 19px;
+      margin: 0;
+      line-height: 1;
+    }
+
+    .sidebar.collapsed .nav-badge {
+      display: none;
+    }
+
+    /* 折叠状态下的底部状态栏 */
+    .sidebar.collapsed .sidebar-footer {
+      padding: 12px 6px;
+      align-items: center;
+    }
+
+    .sidebar.collapsed .conn-status {
+      justify-content: center;
+      width: 100%;
+    }
+
+    .sidebar.collapsed .conn-status span:last-child {
+      display: none;
+    }
+
+    .sidebar.collapsed .theme-switch {
+      flex-direction: column;
+      width: 36px;
+      padding: 3px 2px;
+      gap: 3px;
+    }
+
+    .sidebar.collapsed .theme-btn {
+      width: 30px;
+      height: 28px;
+      padding: 0;
+      flex: 0 0 auto;
+    }
+
+    .sidebar-badges {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    .badge-live {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(34, 197, 94, 0.15);
+      color: var(--green);
+      border: 1px solid rgba(34, 197, 94, 0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 6px; height: 6px;
+      background: var(--green);
+      border-radius: 50%;
+      animation: pulse 1.6s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .badge-dopus {
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 侧边栏导航条目 */
+    .sidebar-nav {
+      flex: 1;
+      padding: 14px 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      padding: 8px 10px 4px 10px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 9px 12px;
+      border-radius: 10px;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      background: transparent;
+      border: 1px solid transparent;
+      transition: all 0.15s ease;
+      text-align: left;
+      width: 100%;
+    }
+
+    .nav-item:hover {
+      background: var(--card-hover);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--card);
+      color: var(--accent);
+      border-color: var(--border);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+    }
+
+    .nav-item-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .nav-badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.06);
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .nav-item.active .nav-badge {
+      background: var(--pill-bg);
+      color: var(--accent);
+      border: 1px solid var(--pill-border);
+    }
+
+    /* 侧边栏底部状态 */
+    .sidebar-footer {
+      padding: 14px 14px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    .theme-switch {
+      display: flex;
+      align-items: center;
+      background: var(--theme-switch-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+      gap: 2px;
+      user-select: none;
+      width: 100%;
+      justify-content: space-around;
+    }
+
+    .theme-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+      transition: all 0.15s ease;
+      line-height: 1;
+    }
+
+    .theme-btn:hover { color: var(--text); }
+    .theme-btn.active {
+      background: var(--theme-btn-active-bg);
+      color: var(--accent);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+      font-weight: 600;
+    }
+
+    /* ===== 右侧主内容区域 ===== */
+    .main-content {
+      flex: 1;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      height: 100vh;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      box-sizing: border-box;
+    }
+
+    /* 顶部综合导航头 */
+    .top-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 18px;
+      background: var(--header-bg);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .top-header-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .view-heading {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .view-sub {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    .top-header-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+      padding: 7px 14px;
+      border-radius: 9px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn:hover { background: var(--card-hover); border-color: var(--accent); }
+
+    .btn-primary {
+      background: var(--btn-primary-bg);
+      border-color: var(--btn-primary-border);
+      color: var(--btn-primary-color);
+      font-weight: 600;
+    }
+    .btn-primary:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .btn-success {
+      background: var(--btn-success-bg);
+      border-color: var(--btn-success-border);
+      color: var(--btn-success-color);
+      font-weight: 600;
+    }
+    .btn-success:hover {
+      background: var(--green);
+      color: #fff;
+    }
+
+    .btn-danger {
+      background: var(--btn-danger-bg);
+      border-color: var(--btn-danger-border);
+      color: var(--btn-danger-color);
+    }
+    .btn-danger:hover {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red);
+    }
+
+    .btn-folder {
+      background: var(--btn-folder-bg);
+      border-color: var(--btn-folder-border);
+      color: var(--btn-folder-color);
+    }
+    .btn-folder:hover {
+      background: var(--btn-folder-hover-bg);
+      border-color: var(--accent);
+      color: var(--accent);
+      box-shadow: 0 0 10px var(--accent-glow);
+    }
+
+    .btn-sm {
+      padding: 4px 9px;
+      font-size: 12px;
+      border-radius: 7px;
+    }
+
+    /* ===== 指标概览条 (METRICS BAR) ===== */
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 12px;
+    }
+
+    .metric-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      transition: all 0.18s ease;
+      position: relative;
+      user-select: none;
+    }
+
+    .metric-card.clickable {
+      cursor: pointer;
+    }
+
+    .metric-card.clickable:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+    }
+
+    .metric-card.clickable.active {
+      border-color: var(--accent);
+      background: var(--card-hover);
+      box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .metric-card.clickable#metricCardRunning.active {
+      border-color: var(--green);
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.35), 0 4px 12px rgba(34, 197, 94, 0.12);
+    }
+
+    .metric-card.clickable#metricCardStopped.active {
+      border-color: var(--muted);
+      box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.35), 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .m-label {
+      font-size: 11.5px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+
+    .m-value {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text);
+      font-family: var(--font-mono);
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+    }
+
+    .m-value.highlight { color: var(--accent); }
+    .m-value.green { color: var(--green); }
+    .m-value.muted { color: var(--muted); }
+
+    /* ===== 启动台视图 (LAUNCHPAD) ===== */
+    .launchpad-filter-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .category-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .cat-pill {
+      background: var(--tabs-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      padding: 5px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .cat-pill:hover {
+      color: var(--text);
+      background: var(--card-hover);
+    }
+
+    .cat-pill.active {
+      background: var(--pill-bg);
+      border-color: var(--pill-border);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .search-input {
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      width: 280px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .search-input:focus { border-color: var(--accent); }
+
+    /* 简洁模式与详细模式切换药丸 */
+    .view-mode-pill {
+      display: inline-flex;
+      align-items: center;
+      background: var(--tabs-bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 2px;
+      gap: 2px;
+      user-select: none;
+    }
+
+    .mode-tab {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
+      line-height: 1;
+    }
+    .mode-tab:hover {
+      color: var(--text);
+    }
+    .mode-tab.active {
+      background: var(--card);
+      color: var(--accent);
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+      font-weight: 600;
+    }
+
+    /* 服务卡片网格 */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+      gap: 14px;
+      transition: all 0.2s ease;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+
+    /* 简洁模式网格：一行严格 4 列，minmax(0, 1fr) 严密约束，彻底杜绝撑出屏幕 */
+    .services-grid.compact-mode {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+    }
+    @media (max-width: 1100px) {
+      .services-grid.compact-mode {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+    @media (max-width: 650px) {
+      .services-grid.compact-mode {
+        grid-template-columns: minmax(0, 1fr);
+      }
+    }
+
+    /* 简洁卡片样式 (Compact Mode) - 固定高度与严格宽度约束 */
+    .service-card.compact-card {
+      padding: 9px 12px;
+      gap: 8px;
+      height: 92px;
+      min-height: 92px;
+      max-height: 92px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      border-radius: 12px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .compact-row-1 {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .compact-title-left {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .compact-icon {
+      font-size: 16px;
+      width: 24px;
+      height: 24px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .compact-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;
+      flex: 1;
+      line-height: 1.2;
+    }
+
+    .compact-title-right {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .compact-micro-btn {
+      background: transparent;
+      border: none;
+      font-size: 11.5px;
+      cursor: pointer;
+      padding: 2px 4px;
+      border-radius: 4px;
+      opacity: 0.6;
+      transition: opacity 0.15s, background 0.15s;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .compact-micro-btn:hover {
+      opacity: 1;
+      background: var(--card-hover);
+    }
+
+    .compact-row-2 {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 0;
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .compact-btn {
+      flex: 1 1 0;
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 4px 2px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border-radius: 6px;
+      white-space: nowrap;
+      text-decoration: none;
+      height: 27px;
+      min-height: 27px;
+      box-sizing: border-box;
+      overflow: hidden;
+      line-height: 1;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .compact-btn .c-icon {
+      font-size: 10px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .compact-btn .c-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 1;
+    }
+
+    /* 启动按钮样式 (未运行时亮绿，运行时温和可用) */
+    .compact-btn-start {
+      background: rgba(34, 197, 94, 0.12);
+      border-color: rgba(34, 197, 94, 0.45);
+      color: var(--green);
+    }
+    .compact-btn-start:hover {
+      background: var(--green);
+      color: #fff;
+      border-color: var(--green);
+    }
+    .compact-btn-start.running-active {
+      background: rgba(34, 197, 94, 0.08);
+      border-color: rgba(34, 197, 94, 0.25);
+      color: var(--green);
+    }
+    .compact-btn-start.running-active:hover {
+      background: rgba(34, 197, 94, 0.2);
+    }
+
+    /* 重启按钮样式 */
+    .compact-btn-restart {
+      background: rgba(56, 189, 248, 0.12);
+      border-color: rgba(56, 189, 248, 0.45);
+      color: var(--accent);
+    }
+    .compact-btn-restart:hover {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* 暂停/停止按钮样式 */
+    .compact-btn-stop {
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.35);
+      color: #ef4444;
+    }
+    .compact-btn-stop:hover {
+      background: #ef4444;
+      color: #fff;
+      border-color: #ef4444;
+    }
+
+    /* 文件按钮样式 */
+    .compact-btn-folder {
+      background: rgba(245, 158, 11, 0.12);
+      border-color: rgba(245, 158, 11, 0.35);
+      color: #f59e0b;
+    }
+    .compact-btn-folder:hover {
+      background: #f59e0b;
+      color: #fff;
+      border-color: #f59e0b;
+    }
+
+    /* 禁用状态 */
+    .compact-btn:disabled, .compact-btn.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
+      filter: grayscale(0.6);
+    }
+
+    /* 文件夹折叠卡片 (Folder Card) 专属样式 */
+    .service-card.compact-card.folder-card {
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      background: linear-gradient(135deg, rgba(56, 189, 248, 0.05) 0%, var(--card) 100%);
+      position: relative;
+      padding: 6px 10px;
+      gap: 4px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    }
+    .service-card.compact-card.folder-card::before {
+      content: "";
+      position: absolute;
+      top: -3px;
+      right: 14px;
+      width: 36px;
+      height: 3px;
+      background: var(--accent);
+      border-radius: 3px 3px 0 0;
+      opacity: 0.85;
+    }
+
+    /* 拖拽悬停长按激活的合并目标高亮态 */
+    .service-card.folder-target-active {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.45), 0 8px 24px rgba(56, 189, 248, 0.25) !important;
+      transform: scale(1.025);
+      transition: all 0.18s cubic-bezier(0.2, 0, 0, 1) !important;
+      position: relative;
+    }
+    .service-card.folder-target-active::after {
+      content: "📁 松手折叠合并为文件夹卡片";
+      position: absolute;
+      inset: 0;
+      background: rgba(14, 165, 233, 0.94);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      z-index: 10;
+      pointer-events: none;
+      animation: pulse 1s infinite alternate;
+      letter-spacing: 0.3px;
+    }
+
+    /* 文件夹卡片内第一排 (主信息) 与第二排 (从信息) */
+    .folder-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+      width: 100%;
+      height: 36px;
+      box-sizing: border-box;
+      padding: 2px 4px;
+      border-radius: 6px;
+      transition: background 0.15s ease;
+    }
+    .folder-row:hover {
+      background: var(--card-hover);
+    }
+    .folder-row-primary {
+      border-bottom: 1px dashed var(--border);
+    }
+
+    .folder-row-left {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .folder-badge-icon {
+      font-size: 13px;
+      color: var(--accent);
+      flex-shrink: 0;
+      line-height: 1;
+    }
+    .folder-sub-tree {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+      opacity: 0.7;
+      flex-shrink: 0;
+      line-height: 1;
+      margin-left: 2px;
+    }
+
+    .folder-row-right {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    /* 文件夹内微型单键 */
+    .micro-btn {
+      width: 22px;
+      height: 22px;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10.5px;
+      border-radius: 5px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      cursor: pointer;
+      transition: all 0.15s ease;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .micro-btn:hover {
+      background: var(--card-hover);
+      border-color: var(--accent);
+    }
+    .micro-btn.btn-start {
+      color: var(--green);
+      background: rgba(34, 197, 94, 0.1);
+      border-color: rgba(34, 197, 94, 0.35);
+    }
+    .micro-btn.btn-start:hover {
+      background: var(--green);
+      color: #fff;
+    }
+    .micro-btn.btn-restart {
+      color: var(--accent);
+      background: rgba(56, 189, 248, 0.1);
+      border-color: rgba(56, 189, 248, 0.35);
+    }
+    .micro-btn.btn-restart:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    .micro-btn.btn-stop {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+    .micro-btn.btn-stop:hover {
+      background: #ef4444;
+      color: #fff;
+    }
+    .micro-btn.btn-stop:disabled, .micro-btn.btn-stop.disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .micro-btn.btn-folder {
+      color: #f59e0b;
+      background: rgba(245, 158, 11, 0.1);
+      border-color: rgba(245, 158, 11, 0.3);
+    }
+    .micro-btn.btn-folder:hover {
+      background: #f59e0b;
+      color: #fff;
+    }
+    .micro-btn.btn-ungroup {
+      color: var(--muted);
+      background: transparent;
+      border-color: transparent;
+      font-size: 11px;
+    }
+    .micro-btn.btn-ungroup:hover {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.12);
+      border-color: rgba(239, 68, 68, 0.3);
+    }
+
+    /* ===== 文件夹从属子端口胶囊列表 (CHILD PORT PILLS) ===== */
+    .folder-row-sub {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+      width: 100%;
+      height: 36px;
+      box-sizing: border-box;
+      padding: 2px 4px;
+      border-radius: 6px;
+      overflow: hidden;
+    }
+
+    .folder-sub-tree {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--accent);
+      opacity: 0.85;
+      flex-shrink: 0;
+      line-height: 1;
+      margin-left: 2px;
+      margin-right: 2px;
+      user-select: none;
+    }
+
+    .child-pills-list {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex: 1;
+      min-width: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .child-pills-list::-webkit-scrollbar {
+      display: none;
+    }
+
+    .child-port-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      height: 24px;
+      min-height: 24px;
+      max-height: 24px;
+      box-sizing: border-box;
+      border-radius: 6px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      font-weight: 700;
+      cursor: grab;
+      user-select: none;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .child-port-pill:hover {
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+      transform: translateY(-1px);
+    }
+    .child-port-pill:active {
+      cursor: grabbing;
+    }
+
+    .child-port-pill.online {
+      border-color: rgba(34, 197, 94, 0.45);
+      background: rgba(34, 197, 94, 0.09);
+      color: var(--green);
+    }
+    .child-port-pill.online:hover {
+      border-color: var(--green);
+      box-shadow: 0 0 10px rgba(34, 197, 94, 0.25);
+    }
+
+    .child-port-pill.offline {
+      border-color: var(--border);
+      background: var(--tabs-bg);
+      color: var(--muted);
+      opacity: 0.85;
+    }
+
+    .child-pill-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+    .child-port-pill.online .child-pill-dot {
+      background: var(--green);
+      box-shadow: 0 0 5px var(--green);
+    }
+
+    .child-pill-port {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 11.5px;
+      line-height: 1;
+    }
+
+    .child-pill-name {
+      font-size: 10.5px;
+      font-family: var(--font-sans);
+      color: var(--muted);
+      max-width: 50px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-weight: 500;
+      line-height: 1;
+    }
+    @media (max-width: 1400px) {
+      .child-pill-name {
+        display: none;
+      }
+    }
+
+    .child-pill-del {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(239, 68, 68, 0.12);
+      color: #ef4444;
+      font-size: 10px;
+      font-weight: bold;
+      line-height: 1;
+      cursor: pointer;
+      margin-left: 1px;
+      padding: 0;
+      opacity: 0.45;
+      transition: all 0.15s ease;
+      flex-shrink: 0;
+    }
+    .child-port-pill:hover .child-pill-del {
+      opacity: 1;
+    }
+    .child-pill-del:hover {
+      background: #ef4444;
+      color: #fff;
+      transform: scale(1.15);
+    }
+
+    .child-port-pill.pill-dragging {
+      opacity: 0.35;
+      transform: scale(0.92);
+      border: 1px dashed var(--accent) !important;
+    }
+
+    /* 简洁模式下的添加卡片 */
+    .add-service-card.compact-card {
+      height: 92px;
+      min-height: 92px;
+      max-height: 92px;
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      padding: 10px 14px;
+      flex-direction: row;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 12px;
+      border-radius: 12px;
+    }
+    .add-service-card.compact-card .add-icon {
+      width: 32px;
+      height: 32px;
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+    .add-service-card.compact-card .add-title {
+      font-size: 13px;
+      text-align: left;
+    }
+    .add-service-card.compact-card .add-desc {
+      font-size: 10.5px;
+      text-align: left;
+    }
+
+    /* 登记新服务卡片 (虚线外框) */
+    .add-service-card {
+      background: rgba(56, 189, 248, 0.03);
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      cursor: pointer;
+      min-height: 200px;
+      transition: all 0.2s ease;
+      user-select: none;
+    }
+
+    .add-service-card:hover {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      transform: translateY(-2px);
+    }
+
+    .add-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      color: var(--accent);
+    }
+
+    .add-title {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .add-desc {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* 服务实体卡片 */
+    .service-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: var(--card-shadow);
+      transition: transform 0.28s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+      position: relative;
+      cursor: grab;
+      user-select: none;
+    }
+
+    .service-card:active {
+      cursor: grabbing;
+    }
+
+    .service-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.25);
+    }
+
+    .service-card.dragging {
+      opacity: 0.35;
+      transform: scale(0.96);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.3);
+      cursor: grabbing;
+      z-index: 100;
+    }
+
+    .service-card.drag-over {
+      border-color: var(--accent) !important;
+      box-shadow: 0 0 0 2px var(--accent), 0 8px 24px var(--accent-glow) !important;
+      transform: scale(1.025);
+      z-index: 50;
+    }
+
+    .service-card button,
+    .service-card a,
+    .service-card input,
+    .service-card select,
+    .service-card textarea,
+    .service-card .cmd-copy-btn,
+    .service-card .cwd-text,
+    .service-card .port-pill {
+      cursor: pointer;
+    }
+
+    .drag-handle {
+      color: var(--muted);
+      opacity: 0.35;
+      font-size: 14px;
+      cursor: grab;
+      transition: opacity 0.15s, color 0.15s;
+      margin-left: 2px;
+      user-select: none;
+      display: inline-flex;
+      align-items: center;
+    }
+    .service-card:hover .drag-handle {
+      opacity: 0.85;
+      color: var(--accent);
+    }
+
+    .service-card.running {
+      border-left: 4px solid var(--green);
+    }
+
+    .service-card.stopped {
+      border-left: 4px solid var(--muted);
+      opacity: 0.95;
+    }
+
+    .service-card.error {
+      border-left: 4px solid var(--red);
+    }
+
+    /* 卡片头部 */
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .card-title-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-icon {
+      font-size: 24px;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--tabs-bg);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .card-title-text {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .card-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-tags {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 2px;
+    }
+
+    .cat-tag {
+      font-size: 11px;
+      font-weight: 500;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--tabs-bg);
+      color: var(--muted);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .port-pill {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--pill-color);
+      background: var(--pill-bg);
+      padding: 3px 8px;
+      border-radius: 7px;
+      border: 1px solid var(--pill-border);
+      display: inline-block;
+      white-space: nowrap;
+    }
+
+    /* 运行状态条 */
+    .card-status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      padding: 4px 8px;
+      background: var(--tabs-bg);
+      border-radius: 8px;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-weight: 600;
+    }
+
+    .status-badge.online {
+      color: var(--green);
+    }
+
+    .status-badge.offline {
+      color: var(--muted);
+    }
+
+    .status-badge.missing {
+      color: var(--red);
+    }
+
+    .card-uptime {
+      font-size: 11px;
+      color: var(--muted);
+      font-family: var(--font-mono);
+    }
+
+    /* 启动命令行代码框 (视觉核心) */
+    .cmd-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 7px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .cmd-code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--accent);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      flex: 1;
+    }
+
+    .cmd-copy-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 4px;
+      border-radius: 4px;
+      transition: all 0.15s;
+    }
+
+    .cmd-copy-btn:hover {
+      color: var(--text);
+      background: var(--card-hover);
+    }
+
+    /* 工作目录直达条 (文件模式) */
+    .cwd-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--muted);
+    }
+
+    .cwd-text {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      font-family: var(--font-mono);
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .cwd-text:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+
+    /* 卡片操作按钮行 */
+    .card-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .card-main-btns {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .card-menu-btns {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .icon-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 5px;
+      border-radius: 6px;
+      font-size: 13px;
+      transition: all 0.15s;
+    }
+
+    .icon-btn:hover {
+      color: var(--text);
+      background: var(--card-hover);
+    }
+
+    .icon-btn.danger:hover {
+      color: var(--red);
+    }
+
+    /* ===== 批处理任务栏 (TASKS SECTION) ===== */
+    .section-tasks {
+      margin-top: 16px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 20px;
+    }
+
+    .tasks-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .tasks-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tasks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .task-card {
+      background: var(--tabs-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .task-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .task-name-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .task-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .task-actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* ===== 服务监控视图与表格 (SERVICE MONITOR) ===== */
+    .monitor-tabs {
+      display: flex;
+      gap: 6px;
+      background: var(--tabs-bg);
+      padding: 5px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .tab {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--muted);
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      transition: all 0.15s;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--card-hover);
+      color: var(--accent);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      font-weight: 600;
+    }
+
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th {
+      background: var(--th-bg);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13.5px;
+      vertical-align: middle;
+      color: var(--text);
+    }
+    tr:hover td { background: var(--tr-hover); }
+
+    .path-cell {
+      max-width: 220px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .path-cell:hover { color: var(--accent); text-decoration: underline; }
+
+    .pid-link { cursor: pointer; transition: color 0.15s; }
+    .pid-link:hover { color: var(--accent); text-decoration: underline; }
+
+    .fw-tag {
+      font-size: 12px;
+      padding: 3px 9px;
+      border-radius: 6px;
+      font-weight: 600;
+      background: var(--fw-tag-bg);
+      color: var(--fw-tag-color);
+      border: 1px solid var(--fw-tag-border);
+    }
+
+    .alias-cell {
+      min-width: 260px;
+    }
+
+    .alias-badge {
+      font-size: 12px;
+      padding: 3px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      max-width: 340px;
+      line-height: 1.4;
+      transition: all 0.15s ease;
+    }
+    .alias-badge:hover {
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      transform: translateY(-1px);
+    }
+
+    .alias-badge.custom {
+      background: var(--badge-custom-bg);
+      color: var(--badge-custom-color);
+      border: 1px solid var(--badge-custom-border);
+      font-weight: 600;
+    }
+
+    .alias-badge.auto {
+      background: var(--badge-auto-bg);
+      color: var(--badge-auto-color);
+      border: 1px solid var(--badge-auto-border);
+    }
+
+    .alias-badge.empty {
+      background: var(--badge-empty-bg);
+      color: var(--muted);
+      border: 1px dashed var(--border);
+    }
+
+    .alias-edit-box {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      width: 100%;
+      min-width: 260px;
+      max-width: 380px;
+    }
+
+    .alias-input {
+      background: var(--input-bg);
+      border: 1.5px solid var(--accent);
+      color: var(--text);
+      font-size: 12.5px;
+      padding: 4px 10px;
+      border-radius: 7px;
+      outline: none;
+      flex: 1;
+      min-width: 180px;
+      box-shadow: 0 0 0 3px var(--accent-glow);
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .alias-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+    }
+
+    .probe-btn {
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      font-size: 12px;
+      opacity: 0.6;
+      transition: opacity 0.15s;
+    }
+    .probe-btn:hover { opacity: 1; }
+
+    .cli-pre {
+      background: var(--cli-bg);
+      color: var(--cli-color);
+      padding: 24px;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      line-height: 1.45;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .event-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      padding: 16px;
+    }
+
+    .event-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: var(--tabs-bg);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      font-size: 13px;
+    }
+
+    .cmd-preview {
+      max-width: 280px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: var(--font-mono);
+    }
+
+    /* ===== 对话框与弹窗 (MODAL) ===== */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0, 0, 0, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.show { display: flex; }
+
+    .modal {
+      background: var(--modal-card-bg);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 24px;
+      width: 540px;
+      max-width: 92vw;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+      animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.96); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .modal-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .form-label {
+      font-size: 12.5px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .form-input {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13.5px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    .form-input:focus { border-color: var(--accent); }
+
+    .form-row {
+      display: flex;
+      gap: 12px;
+    }
+
+    .form-row .form-group { flex: 1; }
+
+    .detail-row {
+      display: flex;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 13px;
+    }
+    .detail-key { width: 140px; color: var(--muted); font-weight: 500; }
+    .detail-val { flex: 1; color: var(--text); word-break: break-all; }
+
+    /* ===== 全局轻提示 (TOAST) ===== */
+    .toast {
+      display: none;
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--toast-bg);
+      color: #fff;
+      padding: 11px 18px;
+      border-radius: 12px;
+      font-size: 13.5px;
+      font-weight: 500;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      border: 1px solid var(--border);
+      z-index: 200;
+      animation: toastIn 0.2s ease;
+    }
+    @keyframes toastIn {
+      from { transform: translateY(12px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+
+    .mono { font-family: var(--font-mono); }
+  </style>
+</head>
+<body>
+  <div class="app-layout">
+    <!-- ===== 左侧固定导航侧边栏 ===== -->
+    <aside class="sidebar">
+      <div>
+        <div class="sidebar-header">
+          <div class="sidebar-header-top">
+            <div class="brand-box" onclick="handleBrandClick()" title="Kiri Launchpad">
+              <span class="brand-icon">🦊</span>
+              <div class="brand-text">
+                <div class="brand-title">Kiri Launchpad</div>
+                <div class="brand-sub">开发服务管控与端口中枢</div>
+              </div>
+            </div>
+            <button class="sidebar-collapse-btn" id="sidebarCollapseBtn" onclick="toggleSidebarCollapse()" title="折叠侧边栏 (快捷键 Ctrl+B)" aria-label="折叠侧边栏">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="15 18 9 12 15 6"></polyline>
+              </svg>
+            </button>
+          </div>
+          <div class="sidebar-badges">
+            <span class="badge-live"><span class="dot"></span> 实时就绪</span>
+            <span class="badge-dopus" id="dopusBadge">📁 DOpus 13</span>
+          </div>
+        </div>
+
+        <nav class="sidebar-nav">
+          <div class="nav-label">核心工作区</div>
+          <!-- 🚀 启动台：强制第一栏，默认打开 -->
+          <button class="nav-item active" id="navItemLaunchpad" onclick="switchMainView('launchpad', this)">
+            <div class="nav-item-left">
+              <span>🚀</span>
+              <span>启动台</span>
+            </div>
+            <span class="nav-badge" id="navBadgeLaunchpad">0</span>
+          </button>
+
+          <!-- 📈 服务监控：原有实时端口与进程监看 -->
+          <button class="nav-item" id="navItemMonitor" onclick="switchMainView('monitor', this)">
+            <div class="nav-item-left">
+              <span>📈</span>
+              <span>服务监控</span>
+            </div>
+            <span class="nav-badge" id="navBadgeMonitor">0</span>
+          </button>
+
+          <!-- 📋 防撞档案：历史端口与冲突规避档案 -->
+          <button class="nav-item" id="navItemRegistry" onclick="switchMainView('registry', this)">
+            <div class="nav-item-left">
+              <span>📋</span>
+              <span>防撞档案</span>
+            </div>
+            <span class="nav-badge" id="navBadgeHistory">0</span>
+          </button>
+
+          <div class="nav-label" style="margin-top: 14px;">系统配置</div>
+          <button class="nav-item" id="navItemSettings" onclick="switchMainView('settings', this)">
+            <div class="nav-item-left">
+              <span>⚙️</span>
+              <span>系统设置</span>
+            </div>
+          </button>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="conn-status">
+          <span class="dot" style="background:#22c55e;"></span>
+          <span>已连接 本机 :7788</span>
+        </div>
+        <div class="theme-switch" role="group" aria-label="主题外观选择">
+          <button type="button" class="theme-btn" data-theme-val="dark" onclick="setTheme('dark')" title="深色模式">
+            <span>🌙</span>
+          </button>
+          <button type="button" class="theme-btn" data-theme-val="light" onclick="setTheme('light')" title="浅色模式">
+            <span>☀️</span>
+          </button>
+          <button type="button" class="theme-btn" data-theme-val="system" onclick="setTheme('system')" title="跟随系统设置">
+            <span>💻</span>
+          </button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ===== 右侧主视图区域 ===== -->
+    <main class="main-content">
+      <!-- 统一顶部 Header -->
+      <header class="top-header">
+        <div class="top-header-left">
+          <div>
+            <h1 class="view-heading" id="viewTitle">🚀 启动台 · 登记服务与命令记录</h1>
+            <div class="view-sub" id="viewSubtitle">快速拉起常用开发服务、记录启动命令与工作目录，一键启动停止与重启</div>
+          </div>
+        </div>
+
+        <div class="top-header-right">
+          <span class="mono" style="font-size:11.5px;color:var(--muted);" id="subStatus">--:--:--</span>
+          <button class="btn btn-primary" id="btnTopRegister" onclick="openServiceModal()" title="登记新的本地项目或后台服务">
+            <span>+ 登记新服务</span>
+          </button>
+          <button class="btn" id="btnTopTask" onclick="openTaskModal()" title="添加常用构建或维护脚本">
+            <span>+ 新增脚本</span>
+          </button>
+          <button class="btn btn-sm" onclick="manualRefresh()" title="立即重新扫描">🔄 扫描</button>
+          <button class="btn btn-sm" id="autoBtn" onclick="toggleAuto()" title="切换自动刷新">⏱️ 3s</button>
+        </div>
+      </header>
+
+      <!-- 顶部指标数据概览条 -->
+      <div class="metrics-bar" id="metricsBar">
+        <div class="metric-card clickable active" id="metricCardTotal" onclick="filterLaunchpadStatus('all')" title="点击筛选：查看全部登记服务">
+          <span class="m-label">登记服务总数</span>
+          <span class="m-value highlight" id="statServicesTotal">0</span>
+        </div>
+        <div class="metric-card clickable" id="metricCardRunning" onclick="filterLaunchpadStatus('running')" title="点击筛选：仅查看正在运行中的服务">
+          <span class="m-label">🟢 正在运行中</span>
+          <span class="m-value green" id="statServicesRunning">0</span>
+        </div>
+        <div class="metric-card clickable" id="metricCardStopped" onclick="filterLaunchpadStatus('stopped')" title="点击筛选：仅查看离线已停止的服务">
+          <span class="m-label">⚪ 离线已停止</span>
+          <span class="m-value muted" id="statServicesStopped">0</span>
+        </div>
+        <div class="metric-card clickable" id="metricCardTasks" onclick="scrollToTasks()" title="点击直达：日常维护批处理任务 (TASKS)">
+          <span class="m-label">📦 批处理任务</span>
+          <span class="m-value" id="statTasksTotal">0</span>
+        </div>
+        <div class="metric-card" style="grid-column: span 2;">
+          <span class="m-label">✨ 推荐可用无冲突端口</span>
+          <div class="m-value" id="statSuggestedPorts" style="font-size:13px;gap:5px;flex-wrap:wrap;padding-top:2px;">
+            <span class="muted" style="font-size:12px;">计算中...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 1: 🚀 启动台 (Launchpad) -->
+      <section id="viewLaunchpad" class="view-container">
+        <!-- 分类过滤与搜索栏 -->
+        <div class="launchpad-filter-row">
+          <div class="category-pills" id="categoryPills">
+            <button class="cat-pill active" onclick="filterCategory('全部', this)">全部</button>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div class="view-mode-pill" id="viewModePill" title="切换服务卡片呈现模式">
+              <button type="button" class="mode-tab active" id="modeTabCompact" onclick="setLaunchpadViewMode('compact')" title="简洁模式：单行四卡，两行极简高频控制">
+                🗂️ 简洁
+              </button>
+              <button type="button" class="mode-tab" id="modeTabDetailed" onclick="setLaunchpadViewMode('detailed')" title="详细模式：完整命令行、物理路径与进程指标">
+                📋 详细
+              </button>
+            </div>
+            <button class="btn btn-sm" onclick="importDetectedServices()" title="自动将当前处于运行监听中的开发端口登记为服务卡片">
+              📥 导入在线端口
+            </button>
+            <input type="text" class="search-input" id="searchLaunchpad" placeholder="🔍 搜索服务名称、端口、启动命令、工作目录..." oninput="renderLaunchpad()" />
+          </div>
+        </div>
+
+        <!-- 服务卡片栅格网格 -->
+        <div class="services-grid" id="servicesGrid" style="margin-top:14px;"
+             ondragover="handleGridDragOver(event)"
+             ondrop="handleGridDrop(event)">
+          <!-- 动态渲染服务卡片 -->
+        </div>
+
+        <!-- 批处理与日常任务栏 (TASKS) -->
+        <div class="section-tasks" id="sectionTasks">
+          <div class="tasks-header">
+            <div class="tasks-title">
+              <span>⚡</span>
+              <span>常用批处理与维护脚本 (TASKS)</span>
+            </div>
+            <button class="btn btn-sm btn-primary" onclick="openTaskModal()">+ 新增任务</button>
+          </div>
+          <div class="tasks-grid" id="tasksGrid">
+            <!-- 动态渲染任务卡片 -->
+          </div>
+        </div>
+      </section>
+
+      <!-- VIEW 2: 📈 服务监控 (Service Monitor) -->
+      <section id="viewMonitor" class="view-container" style="display:none;">
+        <div class="toolbar" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px;">
+          <div class="monitor-tabs">
+            <button class="tab active" onclick="switchMonitorSubTab('dev', this)">🚀 开发服务端口 (ports)</button>
+            <button class="tab" onclick="switchMonitorSubTab('all', this)">🌐 全部监听端口 (--all)</button>
+            <button class="tab" onclick="switchMonitorSubTab('ps', this)">⚙️ 后台开发进程 (ps)</button>
+            <button class="tab" onclick="switchMonitorSubTab('watch', this)">📡 端口变动事件流 (watch)</button>
+            <button class="tab" onclick="switchMonitorSubTab('cli', this)">💻 原生 CLI 终端视图</button>
+          </div>
+          <input type="text" class="search-input" id="searchMonitor" placeholder="🔍 搜索端口、PID、项目、框架或命令行..." oninput="renderMonitorTable()" />
+        </div>
+        <div class="panel" id="monitorPanel"></div>
+      </section>
+
+      <!-- VIEW 3: 📋 防撞档案 (Port History Registry) -->
+      <section id="viewRegistry" class="view-container" style="display:none;">
+        <div class="panel" id="registryPanel"></div>
+      </section>
+
+      <!-- VIEW 4: ⚙️ 系统设置 (Settings) -->
+      <section id="viewSettings" class="view-container" style="display:none;">
+        <div class="panel" style="padding: 24px; display: flex; flex-direction: column; gap: 20px;">
+          <div>
+            <h3 style="font-size: 16px; margin-bottom: 6px;">📁 文件模式 (File Mode) 集成状态</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">
+              Kiri 遵循严苛的「文件模式」工程规范：优先通过 Win32 API 穿透 <code>WinSta0\Default</code> 桌面环境直接调起 <b>Directory Opus</b> 并在容器内高亮选中目标工程；若未安装则优雅降级为系统资源管理器。
+            </p>
+            <div style="background: var(--tabs-bg); border: 1px solid var(--border); border-radius: 10px; padding: 14px; display: flex; align-items: center; justify-content: space-between;">
+              <div>
+                <div style="font-weight: 600; font-size: 14px;" id="dopusStatusText">检测中...</div>
+                <div style="font-size: 12px; color: var(--muted); margin-top: 2px;">调起指令: dopusrt.exe /cmd Go OPENCONTAINER PATH "&lt;target&gt;" NEWTAB=deflister,findexisting TOFRONT</div>
+              </div>
+              <button class="btn btn-folder" onclick="openTargetDir(null, null, '', true)">📁 测试文件模式</button>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="font-size: 16px; margin-bottom: 6px;">🎨 字体规范与设计系统</h3>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div style="background: var(--tabs-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px;">
+                <div style="font-size: 12px; color: var(--muted);">标准无衬线字体 (English Default)</div>
+                <div style="font-size: 15px; font-weight: 700; margin-top: 4px; font-family: var(--font-sans);">Century Gothic, -apple-system, sans-serif</div>
+              </div>
+              <div style="background: var(--tabs-bg); border: 1px solid var(--border); border-radius: 10px; padding: 12px;">
+                <div style="font-size: 12px; color: var(--muted);">等宽代码/端口/PID 字体</div>
+                <div style="font-size: 15px; font-weight: 700; margin-top: 4px; font-family: var(--font-mono);">Cascadia Mono, Consolas, monospace</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <h3 style="font-size: 16px; margin-bottom: 6px;">📦 数据与备份管理</h3>
+            <p style="font-size: 13px; color: var(--muted); margin-bottom: 12px;">
+              所有登记服务与启动命令均持久化存储在当前工程根目录下的 <code>kiri_services.json</code> 文件中。
+            </p>
+            <div style="display:flex;gap:10px;">
+              <button class="btn" onclick="openTargetDir(null, null, 'kiri_services.json', true)">📁 在文件管理器中查看 kiri_services.json</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ===== 登记/编辑服务弹窗 (SERVICE MODAL) ===== -->
+  <div class="modal-backdrop" id="serviceModal" onclick="if(event.target===this)closeServiceModal()">
+    <div class="modal">
+      <h3 class="modal-title" id="serviceModalTitle">🚀 登记开发服务</h3>
+      <form id="serviceForm" onsubmit="event.preventDefault(); saveServiceSubmit();">
+        <input type="hidden" id="formServiceId" />
+        
+        <div class="form-row">
+          <div class="form-group" style="flex: 2;">
+            <label class="form-label">服务名称 *</label>
+            <input type="text" class="form-input" id="formServiceName" placeholder="例如: StudyHelp · 题库工作台" required />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">图标 Icon</label>
+            <input type="text" class="form-input" id="formServiceIcon" placeholder="例如: 📚, 🚀, 🤖" value="🚀" />
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">目标监听端口 (Port) *</label>
+            <input type="number" class="form-input mono" id="formServicePort" placeholder="例如: 8888" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">服务分类 (Category)</label>
+            <input type="text" class="form-input" id="formServiceCategory" placeholder="例如: Python 后端, Web 前端" list="catSuggestions" value="Python 后端" />
+            <datalist id="catSuggestions">
+              <option value="Web 前端" />
+              <option value="Python 后端" />
+              <option value="AI 智能" />
+              <option value="网络工具" />
+              <option value="数据处理" />
+              <option value="系统管控" />
+            </datalist>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">启动命令行 (Startup Command) *</label>
+          <input type="text" class="form-input mono" id="formServiceCommand" placeholder="例如: python main.py serve --port 8888 或 pnpm dev" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">工作运行目录 (CWD 工作区路径)</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" class="form-input mono" id="formServiceCwd" placeholder="例如: ./ 或 D:\workspace\my-app" style="flex:1;" />
+            <button type="button" class="btn btn-sm" onclick="useCurrentWorkspaceForService()">当前路径</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">技术栈 / 框架 (Framework)</label>
+          <input type="text" class="form-input" id="formServiceFramework" placeholder="例如: Python, Vite, FastAPI, Node.js" value="Python" />
+        </div>
+
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn" onclick="closeServiceModal()">取消</button>
+          <button type="submit" class="btn btn-primary">保存登记</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 新增/编辑任务弹窗 (TASK MODAL) ===== -->
+  <div class="modal-backdrop" id="taskModal" onclick="if(event.target===this)closeTaskModal()">
+    <div class="modal">
+      <h3 class="modal-title" id="taskModalTitle">⚡ 常用批处理与维护脚本</h3>
+      <form id="taskForm" onsubmit="event.preventDefault(); saveTaskSubmit();">
+        <input type="hidden" id="formTaskId" />
+
+        <div class="form-row">
+          <div class="form-group" style="flex: 2;">
+            <label class="form-label">任务名称 *</label>
+            <input type="text" class="form-input" id="formTaskName" placeholder="例如: 构建 Rust 内核" required />
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label class="form-label">图标 Icon</label>
+            <input type="text" class="form-input" id="formTaskIcon" placeholder="例如: 🦀, 🧹, 📦" value="⚡" />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">执行命令行 (Command) *</label>
+          <input type="text" class="form-input mono" id="formTaskCommand" placeholder="例如: cargo build --release" required />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">运行工作目录 (CWD)</label>
+          <div style="display:flex;gap:6px;">
+            <input type="text" class="form-input mono" id="formTaskCwd" placeholder="例如: ./ 或 D:\workspace\my-app" style="flex:1;" />
+            <button type="button" class="btn btn-sm" onclick="useCurrentWorkspaceForTask()">当前路径</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">分类 (Category)</label>
+          <input type="text" class="form-input" id="formTaskCategory" placeholder="例如: 工程构建, 清理维护" value="工程构建" />
+        </div>
+
+        <div style="margin-top: 18px; display: flex; justify-content: flex-end; gap: 10px;">
+          <button type="button" class="btn" onclick="closeTaskModal()">取消</button>
+          <button type="submit" class="btn btn-primary">保存任务</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ===== 端口与进程详细信息弹窗 (DETAIL MODAL) ===== -->
+  <div class="modal-backdrop" id="detailModal" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3 class="modal-title" id="modalTitle">端口详情</h3>
+      <div id="modalBody"></div>
+      <div style="margin-top: 18px; text-align: right; display: flex; justify-content: flex-end; gap: 10px;" id="modalFooterBtns">
+        <button class="btn" onclick="closeModal()">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 全局轻提示 -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // 全局数据状态
+    let appData = {
+      dev_ports: [],
+      all_ports: [],
+      dev_processes: [],
+      events: [],
+      history_ports: [],
+      suggested_ports: [],
+      cli_output: "",
+      has_dopus: false,
+      launchpad: {
+        services: [],
+        tasks: [],
+        categories: ["全部"],
+        stats: {}
+      }
+    };
+
+    let currentMainView = "launchpad"; // 默认聚焦「🚀 启动台」
+    let currentMonitorSubTab = "dev";
+    let currentCategoryFilter = "全部";
+    let currentStatusFilter = "all"; // 'all' | 'running' | 'stopped'
+    let autoRefresh = true;
+    let timer = null;
+    let editingPort = null;
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.style.display = "block";
+      setTimeout(() => { t.style.display = "none"; }, 3200);
+    }
+
+    // 格式化转义
+    function escapeHtml(s) {
+      return String(s ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    // ===== 异步拉取后端状态 =====
+    async function fetchStatus(endpoint = "/api/status", method = "GET") {
+      try {
+        const res = await fetch(endpoint, { method });
+        const json = await res.json();
+        if (json.ok && json.data) {
+          appData = json.data;
+          updateSidebarAndStats();
+          renderCurrentView();
+        }
+      } catch (e) {
+        console.error("fetchStatus error:", e);
+      }
+    }
+
+    function manualRefresh() {
+      showToast("正在极速扫描服务与端口状态...");
+      fetchStatus("/api/refresh", "POST");
+    }
+
+    function toggleAuto() {
+      autoRefresh = !autoRefresh;
+      const btn = document.getElementById("autoBtn");
+      btn.textContent = autoRefresh ? "⏱️ 3s" : "⏸️ 已暂停";
+      showToast(autoRefresh ? "已恢复 3 秒自动轮询" : "已暂停自动刷新");
+    }
+
+    // ===== 核心视图切换 (主导航) =====
+    function switchMainView(viewName, el) {
+      currentMainView = viewName;
+      document.querySelectorAll(".sidebar-nav .nav-item").forEach(b => b.classList.remove("active"));
+      if (el) el.classList.add("active");
+
+      // 切换视图容器显示
+      document.getElementById("viewLaunchpad").style.display = viewName === "launchpad" ? "block" : "none";
+      document.getElementById("viewMonitor").style.display = viewName === "monitor" ? "block" : "none";
+      document.getElementById("viewRegistry").style.display = viewName === "registry" ? "block" : "none";
+      document.getElementById("viewSettings").style.display = viewName === "settings" ? "block" : "none";
+
+      // 切换顶部标题与按钮状态
+      const titleEl = document.getElementById("viewTitle");
+      const subEl = document.getElementById("viewSubtitle");
+      const btnReg = document.getElementById("btnTopRegister");
+      const btnTask = document.getElementById("btnTopTask");
+      const metricsBar = document.getElementById("metricsBar");
+
+      if (viewName === "launchpad") {
+        titleEl.textContent = "🚀 启动台 · 服务管控与启动记录";
+        subEl.textContent = "快速拉起常用开发服务、记录启动命令与工作目录，一键启动停止与重启";
+        btnReg.style.display = "inline-flex";
+        btnTask.style.display = "inline-flex";
+        metricsBar.style.display = "grid";
+      } else if (viewName === "monitor") {
+        titleEl.textContent = "📈 服务监控 · 毫秒级端口与进程监看";
+        subEl.textContent = "多层次检测本机监听端口、开发进程、事件流动并支持原生 ASCII 终端输出";
+        btnReg.style.display = "none";
+        btnTask.style.display = "none";
+        metricsBar.style.display = "none";
+      } else if (viewName === "registry") {
+        titleEl.textContent = "📋 防撞档案 · 端口分配预留与冲突规避";
+        subEl.textContent = "记录本机开发端口的历史分配与服务归属，开新项目时一键规避已占端口";
+        btnReg.style.display = "none";
+        btnTask.style.display = "none";
+        metricsBar.style.display = "none";
+      } else if (viewName === "settings") {
+        titleEl.textContent = "⚙️ 系统设置 · 文件模式与全局集成";
+        subEl.textContent = "检查 Directory Opus 直通调起、WinSta0\\Default 物理桌面穿透及排版标准";
+        btnReg.style.display = "none";
+        btnTask.style.display = "none";
+        metricsBar.style.display = "none";
+      }
+
+      renderCurrentView();
+    }
+
+    function renderCurrentView() {
+      if (currentMainView === "launchpad") {
+        renderLaunchpad();
+      } else if (currentMainView === "monitor") {
+        renderMonitorTable();
+      } else if (currentMainView === "registry") {
+        renderRegistryTable();
+      } else if (currentMainView === "settings") {
+        renderSettingsView();
+      }
+    }
+
+    // ===== 更新侧边栏与指标条 =====
+    function updateSidebarAndStats() {
+      const lp = appData.launchpad || {};
+      const services = lp.services || [];
+      const tasks = lp.tasks || [];
+      const historyList = appData.history_ports || [];
+      const devPorts = appData.dev_ports || [];
+
+      // 侧边栏徽章
+      document.getElementById("navBadgeLaunchpad").textContent = services.length;
+      document.getElementById("navBadgeMonitor").textContent = devPorts.length;
+      document.getElementById("navBadgeHistory").textContent = historyList.length;
+
+      // 顶部指标条
+      const runningCount = services.filter(s => s.is_running).length;
+      const stoppedCount = services.length - runningCount;
+
+      document.getElementById("statServicesTotal").textContent = services.length;
+      document.getElementById("statServicesRunning").textContent = runningCount;
+      document.getElementById("statServicesStopped").textContent = stoppedCount;
+      document.getElementById("statTasksTotal").textContent = tasks.length;
+
+      // 推荐空闲端口
+      const suggested = (lp.stats && lp.stats.suggested_ports) || appData.suggested_ports || [];
+      const spContainer = document.getElementById("statSuggestedPorts");
+      if (suggested.length) {
+        spContainer.innerHTML = suggested.map(p => `
+          <span class="port-pill" style="font-size:11.5px;padding:1px 7px;cursor:pointer;" onclick="copyPort('${p}')" title="点击一键复制可用端口 :${p}">:${p}</span>
+        `).join("");
+      } else {
+        spContainer.innerHTML = `<span class="muted" style="font-size:12px;">无冲突</span>`;
+      }
+
+      // DOpus 徽章
+      const dopusBadge = document.getElementById("dopusBadge");
+      if (dopusBadge) {
+        dopusBadge.style.display = appData.has_dopus ? "inline-flex" : "none";
+      }
+
+      // 最近时间
+      document.getElementById("subStatus").textContent =
+        `最近更新: ${appData.updated_at || "-"} (${appData.scan_ms || 0}ms)`;
+
+      // 折叠状态下的侧边栏悬停提示同步
+      if (document.querySelector(".sidebar")?.classList.contains("collapsed")) {
+        updateSidebarCollapseUI(true);
+      }
+      updateStatusFilterUI();
+    }
+
+    function copyPort(p) {
+      navigator.clipboard.writeText(String(p));
+      showToast(`已复制推荐无冲突端口 :${p}`);
+    }
+
+    // ==========================================
+    // 📂 侧边栏折叠与展开控制 (Collapsible Sidebar)
+    // ==========================================
+    const SIDEBAR_COLLAPSE_KEY = "kiri_sidebar_collapsed";
+
+    function toggleSidebarCollapse() {
+      const sidebar = document.querySelector(".sidebar");
+      if (!sidebar) return;
+      const isCollapsed = sidebar.classList.toggle("collapsed");
+      localStorage.setItem(SIDEBAR_COLLAPSE_KEY, isCollapsed ? "1" : "0");
+      updateSidebarCollapseUI(isCollapsed);
+    }
+
+    function handleBrandClick() {
+      const sidebar = document.querySelector(".sidebar");
+      if (sidebar && sidebar.classList.contains("collapsed")) {
+        toggleSidebarCollapse();
+      }
+    }
+
+    function updateSidebarCollapseUI(isCollapsed) {
+      const btn = document.getElementById("sidebarCollapseBtn");
+      if (btn) {
+        btn.setAttribute("title", isCollapsed ? "展开侧边栏 (快捷键 Ctrl+B)" : "折叠侧边栏 (快捷键 Ctrl+B)");
+        btn.setAttribute("aria-label", isCollapsed ? "展开侧边栏" : "折叠侧边栏");
+      }
+      const navLaunchpad = document.getElementById("navItemLaunchpad");
+      const navMonitor = document.getElementById("navItemMonitor");
+      const navRegistry = document.getElementById("navItemRegistry");
+      const navSettings = document.getElementById("navItemSettings");
+
+      const lpCount = document.getElementById("navBadgeLaunchpad")?.textContent || "0";
+      const monCount = document.getElementById("navBadgeMonitor")?.textContent || "0";
+      const histCount = document.getElementById("navBadgeHistory")?.textContent || "0";
+
+      if (isCollapsed) {
+        if (navLaunchpad) navLaunchpad.setAttribute("title", `🚀 启动台 (${lpCount})`);
+        if (navMonitor) navMonitor.setAttribute("title", `📈 服务监控 (${monCount})`);
+        if (navRegistry) navRegistry.setAttribute("title", `📋 防撞档案 (${histCount})`);
+        if (navSettings) navSettings.setAttribute("title", "⚙️ 系统设置");
+      } else {
+        if (navLaunchpad) navLaunchpad.removeAttribute("title");
+        if (navMonitor) navMonitor.removeAttribute("title");
+        if (navRegistry) navRegistry.removeAttribute("title");
+        if (navSettings) navSettings.removeAttribute("title");
+      }
+    }
+
+    function initSidebarCollapse() {
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSE_KEY);
+      const sidebar = document.querySelector(".sidebar");
+      if (saved === "1" && sidebar) {
+        sidebar.classList.add("collapsed");
+        updateSidebarCollapseUI(true);
+      }
+      window.addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && (e.key === "b" || e.key === "B")) {
+          const tag = document.activeElement ? document.activeElement.tagName.toLowerCase() : "";
+          if (tag === "input" || tag === "textarea") return;
+          e.preventDefault();
+          toggleSidebarCollapse();
+        }
+      });
+    }
+
+    // ==========================================
+    // 🚀 启动台 (LAUNCHPAD) 核心逻辑与状态过滤
+    // ==========================================
+    function filterLaunchpadStatus(status) {
+      if (status === "tasks") {
+        scrollToTasks();
+        return;
+      }
+      if (currentStatusFilter === status && status !== "all") {
+        currentStatusFilter = "all";
+      } else {
+        currentStatusFilter = status;
+      }
+      updateStatusFilterUI();
+      renderLaunchpad();
+    }
+
+    function updateStatusFilterUI() {
+      document.querySelectorAll(".metrics-bar .metric-card.clickable").forEach(c => c.classList.remove("active"));
+      if (currentStatusFilter === "all") {
+        document.getElementById("metricCardTotal")?.classList.add("active");
+      } else if (currentStatusFilter === "running") {
+        document.getElementById("metricCardRunning")?.classList.add("active");
+      } else if (currentStatusFilter === "stopped") {
+        document.getElementById("metricCardStopped")?.classList.add("active");
+      }
+    }
+
+    function scrollToTasks() {
+      const el = document.getElementById("sectionTasks");
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" });
+        el.style.transition = "box-shadow 0.3s";
+        el.style.boxShadow = "0 0 0 2px var(--accent)";
+        setTimeout(() => { el.style.boxShadow = ""; }, 1200);
+      }
+    }
+
+    // ==========================================
+    // 🗂️ 启动台视图模式 (简洁模式 / 详细模式)
+    // ==========================================
+    const VIEW_MODE_KEY = "kiri_launchpad_view_mode";
+    let launchpadViewMode = localStorage.getItem(VIEW_MODE_KEY) || "compact"; // 默认简洁模式!
+
+    function setLaunchpadViewMode(mode) {
+      launchpadViewMode = mode;
+      localStorage.setItem(VIEW_MODE_KEY, mode);
+      updateViewModeUI();
+      renderLaunchpad();
+    }
+
+    function toggleLaunchpadViewMode() {
+      setLaunchpadViewMode(launchpadViewMode === "compact" ? "detailed" : "compact");
+    }
+
+    function updateViewModeUI() {
+      const btnCompact = document.getElementById("modeTabCompact");
+      const btnDetailed = document.getElementById("modeTabDetailed");
+      if (btnCompact && btnDetailed) {
+        btnCompact.classList.toggle("active", launchpadViewMode === "compact");
+        btnDetailed.classList.toggle("active", launchpadViewMode === "detailed");
+      }
+      const grid = document.getElementById("servicesGrid");
+      if (grid) {
+        grid.classList.toggle("compact-mode", launchpadViewMode === "compact");
+      }
+    }
+
+    async function restartAndOpenService(port, pid, name) {
+      showToast(`🔄 正在重启「${name}」(:${port})...`);
+      try {
+        const res = await fetch("/api/restart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port, pid })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(`🎉 端口 :${port} 重启成功！正在打开网页...`);
+          pollAndOpenWebPage(port, `http://127.0.0.1:${port}/`);
+          fetchStatus();
+        } else {
+          showToast(`❌ 重启失败: ${json.message || "未知错误"}`);
+        }
+      } catch (e) {
+        showToast(`❌ 请求异常: ${e.message}`);
+      }
+    }
+
+    // ==========================================
+    // 🔀 启动台卡片拖拽交换与子端口向外拖拽解散 (Drag & Drop Card Swapping & Pill Ungrouping)
+    // ==========================================
+    let dragCardSrcId = null;
+    let dragHoldTimer = null;
+    let dragTargetFolderId = null;
+    let draggedChildPillId = null;
+    let draggedChildPillParentId = null;
+
+    function handleChildPillDragStart(e, childId, parentId) {
+      e.stopPropagation();
+      dragCardSrcId = null;
+      draggedChildPillId = childId;
+      draggedChildPillParentId = parentId;
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", childId);
+      const pill = e.currentTarget;
+      if (pill) {
+        setTimeout(() => pill.classList.add("pill-dragging"), 0);
+      }
+    }
+
+    function handleChildPillDragEnd(e) {
+      const pill = e.currentTarget;
+      if (pill) pill.classList.remove("pill-dragging");
+      draggedChildPillId = null;
+      draggedChildPillParentId = null;
+      document.querySelectorAll(".service-card").forEach(c => {
+        c.classList.remove("drag-over", "folder-target-active");
+      });
+    }
+
+    function handleGridDragOver(e) {
+      if (draggedChildPillId) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }
+    }
+
+    async function handleGridDrop(e) {
+      if (draggedChildPillId) {
+        e.preventDefault();
+        const childId = draggedChildPillId;
+        draggedChildPillId = null;
+        draggedChildPillParentId = null;
+        await ungroupService(childId);
+      }
+    }
+
+    function handleCardDragStart(e, id) {
+      if (draggedChildPillId) return;
+      if (e.target.closest("button, a, input, select, textarea, .cmd-copy-btn, .cwd-text, .child-port-pill")) {
+        e.preventDefault();
+        return;
+      }
+      dragCardSrcId = id;
+      dragTargetFolderId = null;
+      if (dragHoldTimer) clearTimeout(dragHoldTimer);
+      e.dataTransfer.effectAllowed = "move";
+      e.dataTransfer.setData("text/plain", id);
+      const card = document.getElementById(`scard-${id}`);
+      if (card) {
+        setTimeout(() => card.classList.add("dragging"), 0);
+      }
+    }
+
+    function handleCardDragOver(e, targetId) {
+      if (draggedChildPillId) {
+        if (targetId !== draggedChildPillParentId) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }
+        return;
+      }
+      if (!dragCardSrcId || dragCardSrcId === targetId) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+    }
+
+    function handleCardDragEnter(e, targetId) {
+      if (draggedChildPillId) {
+        if (targetId !== draggedChildPillParentId) {
+          e.preventDefault();
+          const card = document.getElementById(`scard-${targetId}`);
+          if (card) card.classList.add("drag-over");
+        }
+        return;
+      }
+      if (!dragCardSrcId || dragCardSrcId === targetId) return;
+      e.preventDefault();
+      const card = document.getElementById(`scard-${targetId}`);
+      if (card) card.classList.add("drag-over");
+
+      // 悬停长按 400ms 触发“折叠合并成文件夹”判定
+      if (dragHoldTimer) clearTimeout(dragHoldTimer);
+      dragHoldTimer = setTimeout(() => {
+        if (dragCardSrcId && dragCardSrcId !== targetId) {
+          dragTargetFolderId = targetId;
+          const targetCard = document.getElementById(`scard-${targetId}`);
+          if (targetCard) {
+            targetCard.classList.add("folder-target-active");
+            targetCard.classList.remove("drag-over");
+          }
+        }
+      }, 400);
+    }
+
+    function handleCardDragLeave(e, targetId) {
+      const card = document.getElementById(`scard-${targetId}`);
+      if (card && !card.contains(e.relatedTarget)) {
+        card.classList.remove("drag-over", "folder-target-active");
+        if (dragTargetFolderId === targetId) dragTargetFolderId = null;
+        if (dragHoldTimer) {
+          clearTimeout(dragHoldTimer);
+          dragHoldTimer = null;
+        }
+      }
+    }
+
+    function handleCardDragEnd(e) {
+      if (dragHoldTimer) {
+        clearTimeout(dragHoldTimer);
+        dragHoldTimer = null;
+      }
+      dragTargetFolderId = null;
+      dragCardSrcId = null;
+      document.querySelectorAll(".service-card").forEach(c => {
+        c.classList.remove("dragging", "drag-over", "folder-target-active");
+      });
+    }
+
+    async function groupServices(draggedId, targetId) {
+      try {
+        const resp = await fetch("/api/launchpad/services/group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "group", dragged_id: draggedId, target_id: targetId })
+        });
+        const res = await resp.json();
+        if (res.ok) {
+          appData.launchpad = res.launchpad;
+          renderLaunchpad();
+          showToast("📁 已成功折叠合并为文件夹卡片");
+        } else {
+          showToast(`❌ 折叠合并失败: ${res.message}`);
+        }
+      } catch (err) {
+        console.error("group error:", err);
+        showToast("❌ 合并请求失败");
+      }
+    }
+
+    async function ungroupService(childId) {
+      try {
+        const resp = await fetch("/api/launchpad/services/group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "ungroup", dragged_id: childId })
+        });
+        const res = await resp.json();
+        if (res.ok) {
+          appData.launchpad = res.launchpad;
+          renderLaunchpad();
+          showToast("⏏️ 已将该服务移出文件夹，还原为独立卡片");
+        } else {
+          showToast(`❌ 移出失败: ${res.message}`);
+        }
+      } catch (err) {
+        console.error("ungroup error:", err);
+        showToast("❌ 移出请求失败");
+      }
+    }
+
+    async function handleCardDrop(e, targetId) {
+      e.preventDefault();
+      if (dragHoldTimer) {
+        clearTimeout(dragHoldTimer);
+        dragHoldTimer = null;
+      }
+
+      // 1. 如果当前拖拽的是子端口胶囊 (Child Port Pill) 往外拖解散
+      if (draggedChildPillId) {
+        e.stopPropagation();
+        const childId = draggedChildPillId;
+        const parentId = draggedChildPillParentId;
+        draggedChildPillId = null;
+        draggedChildPillParentId = null;
+        document.querySelectorAll(".service-card").forEach(c => c.classList.remove("drag-over", "dragging", "folder-target-active"));
+
+        // 只要拖出自身的原父文件夹卡片，松手即移出解散为独立卡片
+        if (targetId !== parentId) {
+          await ungroupService(childId);
+        }
+        return;
+      }
+
+      const targetCard = document.getElementById(`scard-${targetId}`);
+      const isFolderMerge = (dragTargetFolderId === targetId) || (targetCard && targetCard.classList.contains("folder-target-active"));
+      dragTargetFolderId = null;
+
+      const srcId = dragCardSrcId || e.dataTransfer.getData("text/plain");
+      document.querySelectorAll(".service-card").forEach(c => c.classList.remove("drag-over", "dragging", "folder-target-active"));
+      dragCardSrcId = null;
+
+      if (!srcId || srcId === targetId) return;
+
+      // 若处于长按折叠合并为文件夹态
+      if (isFolderMerge) {
+        await groupServices(srcId, targetId);
+        return;
+      }
+
+      const lp = appData.launchpad || {};
+      const services = lp.services || [];
+      const idxSrc = services.findIndex(s => s.id === srcId);
+      const idxTarget = services.findIndex(s => s.id === targetId);
+
+      if (idxSrc === -1 || idxTarget === -1) return;
+
+      // 1. FLIP: 记录所有卡片交换前的物理屏幕位置
+      const firstPositions = new Map();
+      document.querySelectorAll("#servicesGrid .service-card").forEach(card => {
+        const sid = card.getAttribute("data-id");
+        if (sid) {
+          firstPositions.set(sid, card.getBoundingClientRect());
+        }
+      });
+
+      // 2. 交换服务数组位置
+      const srcService = services[idxSrc];
+      const targetService = services[idxTarget];
+      services[idxSrc] = targetService;
+      services[idxTarget] = srcService;
+
+      // 3. 重新渲染 DOM
+      renderLaunchpad();
+
+      // 4. FLIP: 计算位移差并应用丝滑缓动动画
+      requestAnimationFrame(() => {
+        document.querySelectorAll("#servicesGrid .service-card").forEach(card => {
+          const sid = card.getAttribute("data-id");
+          const firstRect = firstPositions.get(sid);
+          if (firstRect) {
+            const lastRect = card.getBoundingClientRect();
+            const deltaX = firstRect.left - lastRect.left;
+            const deltaY = firstRect.top - lastRect.top;
+            if (deltaX !== 0 || deltaY !== 0) {
+              card.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+              card.style.transition = "none";
+              requestAnimationFrame(() => {
+                card.style.transition = "transform 0.35s cubic-bezier(0.2, 0, 0, 1), box-shadow 0.25s ease";
+                card.style.transform = "";
+              });
+            }
+          }
+        });
+      });
+
+      showToast(`✨ 已丝滑交换「${srcService.name}」与「${targetService.name}」卡片位置`);
+
+      // 5. 后台静默持久化卡片排序
+      try {
+        await fetch("/api/launchpad/services/reorder", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ swap: [srcId, targetId], order: services.map(s => s.id) })
+        });
+      } catch (err) {
+        console.error("Save card order error:", err);
+      }
+    }
+
+    function filterCategory(cat, el) {
+      currentCategoryFilter = cat;
+      document.querySelectorAll(".cat-pill").forEach(b => b.classList.remove("active"));
+      if (el) el.classList.add("active");
+      renderLaunchpad();
+    }
+
+    function renderLaunchpad() {
+      const lp = appData.launchpad || {};
+      const services = lp.services || [];
+      const tasks = lp.tasks || [];
+      const categories = lp.categories || ["全部"];
+      const q = (document.getElementById("searchLaunchpad").value || "").trim().toLowerCase();
+
+      // 1. 渲染分类 Filter Pills
+      const catContainer = document.getElementById("categoryPills");
+      catContainer.innerHTML = categories.map(c => `
+        <button class="cat-pill ${c === currentCategoryFilter ? 'active' : ''}" onclick="filterCategory('${escapeHtml(c)}', this)">
+          ${escapeHtml(c)}
+        </button>
+      `).join("");
+
+      // 2. 梳理父子层级映射 (Folder 架构)
+      const childrenMap = {};
+      const serviceMap = {};
+      services.forEach(s => {
+        serviceMap[s.id] = s;
+        if (s.parent_id) {
+          if (!childrenMap[s.parent_id]) childrenMap[s.parent_id] = [];
+          childrenMap[s.parent_id].push(s);
+        }
+      });
+
+      // 提取独立根卡片 (无 parent_id 或 parent 不存在)
+      const rootServices = services.filter(s => !s.parent_id || !serviceMap[s.parent_id]);
+
+      // 过滤根服务 (结合主卡及其内部从属卡片的状态、分类与搜索)
+      const filtered = rootServices.filter(s => {
+        const subs = childrenMap[s.id] || [];
+        const allItems = [s, ...subs];
+
+        // 状态筛选
+        if (currentStatusFilter === "running" && !allItems.some(item => item.is_running)) return false;
+        if (currentStatusFilter === "stopped" && !allItems.some(item => !item.is_running)) return false;
+
+        // 分类筛选
+        const matchesCat = currentCategoryFilter === "全部" || allItems.some(item => item.category === currentCategoryFilter);
+        if (!matchesCat) return false;
+
+        // 搜索筛选
+        if (!q) return true;
+        return allItems.some(item => 
+          (item.name || "").toLowerCase().includes(q) ||
+          String(item.port || "").includes(q) ||
+          (item.command || "").toLowerCase().includes(q) ||
+          (item.cwd || "").toLowerCase().includes(q) ||
+          (item.category || "").toLowerCase().includes(q) ||
+          (item.framework || "").toLowerCase().includes(q)
+        );
+      });
+
+      const isCompact = (launchpadViewMode === "compact");
+      updateViewModeUI();
+
+      // 3. 渲染服务栅格 (首位「+ 登记新服务」卡片仅在全量默认首屏展示)
+      const shouldShowAddCard = (currentStatusFilter === "all" && currentCategoryFilter === "全部" && !q);
+      const grid = document.getElementById("servicesGrid");
+      grid.classList.toggle("compact-mode", isCompact);
+
+      let html = "";
+      if (shouldShowAddCard) {
+        if (isCompact) {
+          html = `
+            <div class="add-service-card compact-card" onclick="openServiceModal()" title="登记新的本地项目或服务">
+              <div class="add-icon">+</div>
+              <div>
+                <div class="add-title">登记新服务</div>
+                <div class="add-desc">记录命令与目录</div>
+              </div>
+            </div>
+          `;
+        } else {
+          html = `
+            <div class="add-service-card" onclick="openServiceModal()">
+              <div class="add-icon">+</div>
+              <div class="add-title">登记新服务</div>
+              <div class="add-desc">记录项目启动命令行与工作目录</div>
+            </div>
+          `;
+        }
+      }
+
+      if (filtered.length === 0 && !shouldShowAddCard) {
+        let emptyHint = "暂无符合条件的服务";
+        if (currentStatusFilter === "running") emptyHint = "当前没有正在运行的服务";
+        else if (currentStatusFilter === "stopped") emptyHint = "当前没有离线已停止的服务";
+        else if (q) emptyHint = `未搜索到匹配「${escapeHtml(q)}」的服务`;
+
+        html = `
+          <div style="grid-column: 1 / -1; padding: 42px 20px; text-align: center; color: var(--muted); background: var(--card); border: 1px dashed var(--border); border-radius: 14px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">🔍</div>
+            <div style="font-size: 15px; font-weight: 600; color: var(--text);">${emptyHint}</div>
+            <div style="font-size: 12.5px; margin-top: 6px;">可点击上方「登记服务总数」或切换分类查看其它服务</div>
+            <button class="btn btn-sm" style="margin-top: 12px;" onclick="filterLaunchpadStatus('all')">查看全部登记服务</button>
+          </div>
+        `;
+      }
+
+      html += filtered.map(s => {
+        const isRunning = s.is_running;
+        const cardClass = isRunning ? "running" : (!s.cwd_exists && s.cwd && s.cwd !== "-" ? "error" : "stopped");
+        const safeCwd = (s.cwd || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+        const safeCmd = (s.command || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+        const children = childrenMap[s.id] || [];
+
+        // ===== 1. 文件夹折叠卡片 (FOLDER: 包含从属卡片，主信息第一排，子端口胶囊放第二排) =====
+        if (isCompact && children.length > 0) {
+          const startOnClick = isRunning
+            ? `window.open('http://127.0.0.1:${s.port}', '_blank'); showToast('🚀 服务已在运行中，已在浏览器中打开 :${s.port}');`
+            : `startService('${s.id}', ${s.port}, '${safeCmd}', '${safeCwd}')`;
+          const restartOnClick = isRunning
+            ? `restartAndOpenService(${s.port}, ${s.pid || 'null'}, '${escapeHtml(s.name)}')`
+            : `startService('${s.id}', ${s.port}, '${safeCmd}', '${safeCwd}')`;
+
+          const anyRunning = isRunning || children.some(c => c.is_running);
+          const folderCardClass = anyRunning ? "running" : "stopped";
+
+          return `
+            <div class="service-card compact-card folder-card ${folderCardClass}" id="scard-${s.id}" data-id="${s.id}"
+                 draggable="true"
+                 ondragstart="handleCardDragStart(event, '${s.id}')"
+                 ondragover="handleCardDragOver(event, '${s.id}')"
+                 ondragenter="handleCardDragEnter(event, '${s.id}')"
+                 ondragleave="handleCardDragLeave(event, '${s.id}')"
+                 ondrop="handleCardDrop(event, '${s.id}')"
+                 ondragend="handleCardDragEnd(event)">
+              <!-- 第一排：被拖进去的主信息 (HOST SERVICE) -->
+              <div class="folder-row folder-row-primary">
+                <div class="folder-row-left">
+                  <span class="folder-badge-icon" title="文件夹卡片 (包含 ${children.length} 个从属服务)">📁</span>
+                  <span class="compact-icon" style="font-size:14px;width:18px;height:18px;">${escapeHtml(s.icon || "🚀")}</span>
+                  <div class="compact-name" title="[主] ${escapeHtml(s.name)} · 端口 :${s.port}">
+                    ${escapeHtml(s.name)}
+                  </div>
+                  <span class="port-pill" onclick="window.open('http://127.0.0.1:${s.port}', '_blank')" style="cursor:pointer;" title="点击访问 :${s.port}">:${s.port}</span>
+                </div>
+                <div class="folder-row-right">
+                  <button class="micro-btn btn-start ${isRunning ? 'running-active' : ''}" onclick="${startOnClick}" title="${isRunning ? '服务已在运行 · 点击在浏览器打开' : '拉起服务并在就绪后打开网页'}">▷</button>
+                  <button class="micro-btn btn-restart" onclick="${restartOnClick}" title="重启服务并自动打开网页">🔄</button>
+                  <button class="micro-btn btn-stop ${!isRunning ? 'disabled' : ''}" ${!isRunning ? 'disabled' : ''} onclick="${isRunning ? `stopService('${s.id}', ${s.port}, ${s.pid || 'null'})` : ''}" title="${isRunning ? '暂停/停止该服务' : '服务当前已停止'}">⏸</button>
+                  <button class="micro-btn btn-folder" onclick="openTargetDir(${s.port || 'null'}, ${s.pid || 'null'}, '${safeCwd}', true)" title="文件模式：在 Directory Opus 中定位">📁</button>
+                  <button class="compact-micro-btn" onclick='editService(${JSON.stringify(s).replace(/'/g, "&#39;")})' title="编辑服务配置">✏️</button>
+                  <span class="drag-handle" title="按住拖拽移动整组文件夹">⠿</span>
+                </div>
+              </div>
+
+              <!-- 第二排：包含的从属子端口胶囊 (DRAGGABLE CHILD PORT PILLS: :3200 :3300) -->
+              <div class="folder-row folder-row-sub">
+                <span class="folder-sub-tree" title="折叠从属服务 (拖拽药丸往外拖解散，点击打开网页)">└</span>
+                <div class="child-pills-list">
+                  ${children.map(child => {
+                    const cIsRunning = child.is_running;
+                    const cSafeCwd = (child.cwd || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+                    const cSafeCmd = (child.command || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+                    const clickAction = cIsRunning
+                      ? `window.open('http://127.0.0.1:${child.port}', '_blank')`
+                      : `startService('${child.id}', ${child.port}, '${cSafeCmd}', '${cSafeCwd}')`;
+                    const pillTitle = `[从属] ${escapeHtml(child.name)} · :${child.port} (${cIsRunning ? '🟢 运行中 PID ' + (child.pid||'-') : '⚪ 已停止'})\n👉 点击${cIsRunning ? '在浏览器打开' : '一键启动服务'}\n✋ 往外拖拽即可移出文件夹，或点击 × 一键解散`;
+                    return `
+                      <div class="child-port-pill ${cIsRunning ? 'online' : 'offline'}"
+                           draggable="true"
+                           ondragstart="handleChildPillDragStart(event, '${child.id}', '${s.id}')"
+                           ondragend="handleChildPillDragEnd(event)"
+                           onclick="${clickAction}"
+                           title="${pillTitle}">
+                        <span class="child-pill-dot"></span>
+                        <span class="child-pill-port">:${child.port}</span>
+                        <span class="child-pill-name" title="${escapeHtml(child.name)}">${escapeHtml(child.name)}</span>
+                        <button class="child-pill-del" onclick="event.stopPropagation(); ungroupService('${child.id}');" title="移出文件夹，还原为独立卡片">×</button>
+                      </div>
+                    `;
+                  }).join("")}
+                </div>
+                <div class="folder-row-right" style="margin-left:auto;">
+                  <span style="font-size:10px;color:var(--muted);opacity:0.6;user-select:none;cursor:default;" title="提示：可将端口胶囊往外拖拽解散，或点击 × 移出">拖出解散 ↗</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        // ===== 2. 独立简洁模式卡片 (COMPACT: 极简双行，4 卡单行) =====
+        if (isCompact) {
+          return `
+            <div class="service-card compact-card ${cardClass}" id="scard-${s.id}" data-id="${s.id}"
+                 draggable="true"
+                 ondragstart="handleCardDragStart(event, '${s.id}')"
+                 ondragover="handleCardDragOver(event, '${s.id}')"
+                 ondragenter="handleCardDragEnter(event, '${s.id}')"
+                 ondragleave="handleCardDragLeave(event, '${s.id}')"
+                 ondrop="handleCardDrop(event, '${s.id}')"
+                 ondragend="handleCardDragEnd(event)">
+              <!-- 第一行：名称、状态、端口、编辑、拖拽把手 -->
+              <div class="compact-row-1">
+                <div class="compact-title-left">
+                  <span class="compact-icon">${escapeHtml(s.icon || "🚀")}</span>
+                  <div class="compact-name" title="${escapeHtml(s.name)} · 端口 :${s.port}">
+                    ${escapeHtml(s.name)}
+                  </div>
+                </div>
+                <div class="compact-title-right">
+                  <span class="port-pill" onclick="window.open('http://127.0.0.1:${s.port}', '_blank')" style="cursor:pointer;" title="点击直接在浏览器中访问 http://127.0.0.1:${s.port}">:${s.port}</span>
+                  <button class="compact-micro-btn" onclick='editService(${JSON.stringify(s).replace(/'/g, "&#39;")})' title="编辑服务配置">✏️</button>
+                  <span class="drag-handle" title="按住拖拽交换卡片位置">⠿</span>
+                </div>
+              </div>
+
+              <!-- 第二行：精简四键（启动、重启、暂停、文件，小图标超紧凑自适应） -->
+              <div class="compact-row-2">
+                <button class="compact-btn compact-btn-start ${isRunning ? 'running-active' : ''}"
+                        onclick="${isRunning ? `window.open('http://127.0.0.1:${s.port}', '_blank'); showToast('🚀 服务已在运行中，已在浏览器中打开 :${s.port}');` : `startService('${s.id}', ${s.port}, '${safeCmd}', '${safeCwd}')`}"
+                        title="${isRunning ? `服务正在运行中 · 点击直接在浏览器中打开 http://127.0.0.1:${s.port}` : `拉起服务并在就绪后自动打开网页`}">
+                  <span class="c-icon">▷</span>
+                  <span class="c-text">启动</span>
+                </button>
+                <button class="compact-btn compact-btn-restart"
+                        onclick="${isRunning ? `restartAndOpenService(${s.port}, ${s.pid || 'null'}, '${escapeHtml(s.name)}')` : `startService('${s.id}', ${s.port}, '${safeCmd}', '${safeCwd}')`}"
+                        title="${isRunning ? '重启该服务并在就绪后自动打开网页' : '服务未运行，点击直接启动并打开'}">
+                  <span class="c-icon">🔄</span>
+                  <span class="c-text">重启</span>
+                </button>
+                <button class="compact-btn compact-btn-stop ${!isRunning ? 'disabled' : ''}"
+                        ${!isRunning ? 'disabled' : ''}
+                        onclick="${isRunning ? `stopService('${s.id}', ${s.port}, ${s.pid || 'null'})` : ''}"
+                        title="${isRunning ? '暂停/停止该服务' : '服务当前已处于停止状态'}">
+                  <span class="c-icon">⏸</span>
+                  <span class="c-text">暂停</span>
+                </button>
+                <button class="compact-btn compact-btn-folder"
+                        onclick="openTargetDir(${s.port || 'null'}, ${s.pid || 'null'}, '${safeCwd}', true)"
+                        title="文件模式：在 Directory Opus 中高亮定位">
+                  <span class="c-icon">📁</span>
+                  <span class="c-text">文件</span>
+                </button>
+              </div>
+            </div>
+          `;
+        }
+
+        // ===== 详细模式卡片 (DETAILED: 完整信息) =====
+        let statusBadgeHtml = "";
+        if (isRunning) {
+          statusBadgeHtml = `<span class="status-badge online"><span class="dot"></span> 运行中 · PID ${s.pid || '-'} ${s.memory && s.memory !== '-' ? '· ' + s.memory : ''}</span>`;
+        } else if (!s.cwd_exists && s.cwd && s.cwd !== "-") {
+          statusBadgeHtml = `<span class="status-badge missing">⚠️ 目录不存在</span>`;
+        } else {
+          statusBadgeHtml = `<span class="status-badge offline">⚪ 已停止</span>`;
+        }
+
+        return `
+          <div class="service-card ${cardClass}" id="scard-${s.id}" data-id="${s.id}"
+               draggable="true"
+               ondragstart="handleCardDragStart(event, '${s.id}')"
+               ondragover="handleCardDragOver(event, '${s.id}')"
+               ondragenter="handleCardDragEnter(event, '${s.id}')"
+               ondragleave="handleCardDragLeave(event, '${s.id}')"
+               ondrop="handleCardDrop(event, '${s.id}')"
+               ondragend="handleCardDragEnd(event)">
+            <!-- 卡片头 -->
+            <div class="card-head">
+              <div class="card-title-group">
+                <div class="card-icon">${escapeHtml(s.icon || "🚀")}</div>
+                <div class="card-title-text">
+                  <div class="card-name" title="${escapeHtml(s.name)}">${escapeHtml(s.name)}</div>
+                  <div class="card-tags">
+                    <span class="cat-tag">${escapeHtml(s.category || "默认")}</span>
+                    <span class="cat-tag" style="background:var(--fw-tag-bg);color:var(--fw-tag-color);">${escapeHtml(s.framework || "Web")}</span>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;align-items:center;gap:4px;">
+                <span class="port-pill" title="监听端口 :${s.port}">:${s.port}</span>
+                <span class="drag-handle" title="按住拖动可交换卡片位置">⠿</span>
+              </div>
+            </div>
+
+            <!-- 状态条 -->
+            <div class="card-status-bar">
+              ${statusBadgeHtml}
+              <span class="card-uptime">${isRunning ? (s.uptime || '-') : '空闲'}</span>
+            </div>
+
+            <!-- 启动命令框 (视觉核心 Cascadia Mono) -->
+            <div class="cmd-box">
+              <span class="cmd-code" title="${escapeHtml(s.command)}">${escapeHtml(s.command || "- 未配置命令 -")}</span>
+              ${s.command ? `
+                <button type="button" class="cmd-copy-btn" onclick="copyCommand('${safeCmd}')" title="一键复制启动命令行">📋</button>
+              ` : ""}
+            </div>
+
+            <!-- 工作目录 (文件模式直通) -->
+            <div class="cwd-row">
+              <span class="cwd-text" onclick="openTargetDir(${s.port || 'null'}, ${s.pid || 'null'}, '${safeCwd}', true)" title="点击在 ${appData.has_dopus ? 'Directory Opus' : '文件管理器'} 中定位并高亮选中此项目目录">
+                📁 ${escapeHtml(s.cwd || "-")}
+              </span>
+              <button class="btn btn-sm btn-folder" onclick="openTargetDir(${s.port || 'null'}, ${s.pid || 'null'}, '${safeCwd}', true)" title="文件模式定位选中">定位</button>
+            </div>
+
+            <!-- 操作按钮行 -->
+            <div class="card-actions">
+              <div class="card-main-btns">
+                ${!isRunning ? `
+                  <button class="btn btn-sm btn-success" onclick="startService('${s.id}', ${s.port}, '${safeCmd}', '${safeCwd}')" title="使用配置的命令行在独立控制台中启动该服务">
+                    ▷ 启动服务
+                  </button>
+                ` : `
+                  <button class="btn btn-sm btn-danger" onclick="stopService('${s.id}', ${s.port}, ${s.pid || 'null'})" title="停止该服务的运行进程">
+                    ⏹ 停止
+                  </button>
+                  <button class="btn btn-sm" onclick="restartTarget(${s.port}, ${s.pid || 'null'}, '${escapeHtml(s.name)}')" title="重启此服务">
+                    🔄 重启
+                  </button>
+                  <a class="btn btn-sm" href="http://127.0.0.1:${s.port}" target="_blank" title="在浏览器中访问 http://127.0.0.1:${s.port}">
+                    🌐 访问
+                  </a>
+                `}
+              </div>
+
+              <div class="card-menu-btns">
+                <button class="icon-btn" onclick='editService(${JSON.stringify(s).replace(/'/g, "&#39;")})' title="编辑服务配置">✏️</button>
+                <button class="icon-btn danger" onclick="deleteService('${s.id}', '${escapeHtml(s.name)}')" title="删除该服务登记">🗑️</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join("");
+
+      grid.innerHTML = html;
+
+      // 4. 渲染批处理任务列表
+      const tasksGrid = document.getElementById("tasksGrid");
+      if (!tasks.length) {
+        tasksGrid.innerHTML = `<div style="grid-column:1/-1;color:var(--muted);font-size:13px;padding:12px;">暂无批处理任务，点击右上角「+ 新增任务」添加常用构建脚本。</div>`;
+      } else {
+        tasksGrid.innerHTML = tasks.map(t => {
+          const safeCmd = (t.command || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+          const safeCwd = (t.cwd || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+          return `
+            <div class="task-card">
+              <div class="task-head">
+                <div class="task-name-group">
+                  <span style="font-size:18px;">${escapeHtml(t.icon || "⚡")}</span>
+                  <div>
+                    <div class="task-name">${escapeHtml(t.name)}</div>
+                    <span class="cat-tag">${escapeHtml(t.category || "脚本")}</span>
+                  </div>
+                </div>
+                <div class="task-actions">
+                  <button class="btn btn-sm btn-primary" onclick="runTask('${t.id}', '${escapeHtml(t.name)}')">▷ 执行</button>
+                  <button class="icon-btn" onclick='editTask(${JSON.stringify(t).replace(/'/g, "&#39;")})' title="编辑任务">✏️</button>
+                  <button class="icon-btn danger" onclick="deleteTask('${t.id}', '${escapeHtml(t.name)}')" title="删除任务">🗑️</button>
+                </div>
+              </div>
+
+              <div class="cmd-box">
+                <span class="cmd-code" title="${escapeHtml(t.command)}">${escapeHtml(t.command)}</span>
+                <button type="button" class="cmd-copy-btn" onclick="copyCommand('${safeCmd}')" title="复制">📋</button>
+              </div>
+
+              <div class="cwd-row">
+                <span class="cwd-text" onclick="openTargetDir(null, null, '${safeCwd}', true)">📁 ${escapeHtml(t.cwd || "-")}</span>
+                <span class="mono" style="font-size:11px;color:var(--muted);">${t.last_run ? '上次: ' + escapeHtml(t.last_run) : ''}</span>
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+    }
+
+    function copyCommand(cmd) {
+      navigator.clipboard.writeText(cmd);
+      showToast(`已复制启动命令行到剪贴板！`);
+    }
+
+    // ===== 启动/停止服务 API 调用 =====
+    async function startService(id, port, command, cwd) {
+      showToast(`🚀 正在新控制台中拉起服务 (端口 :${port})，端口就绪后将自动打开网页...`);
+      const btn = window.event && window.event.target ? window.event.target : null;
+      if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<span class="dot"></span> 启动中...`;
+      }
+      try {
+        const res = await fetch("/api/launchpad/service/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, port, command, cwd, open_browser: true })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "服务启动中，正在等待端口就绪...");
+          if (json.data) {
+            appData = json.data;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+          if (port) {
+            pollAndOpenWebPage(port, json.url || `http://127.0.0.1:${port}/`);
+          }
+        } else {
+          showToast("❌ 启动失败: " + (json.message || "未知错误"));
+          if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = `▷ 启动服务`;
+          }
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+        if (btn) {
+          btn.disabled = false;
+          btn.innerHTML = `▷ 启动服务`;
+        }
+      }
+    }
+
+    function pollAndOpenWebPage(port, url) {
+      let attempts = 0;
+      const pollTimer = setInterval(async () => {
+        attempts++;
+        if (attempts > 20) {
+          clearInterval(pollTimer);
+          return;
+        }
+        const devPorts = appData.dev_ports || [];
+        const isOnline = devPorts.some(p => p.port === port);
+        if (isOnline) {
+          clearInterval(pollTimer);
+          showToast(`🎉 端口 :${port} 服务已成功就绪！已打开网页: ${url}`);
+          try {
+            window.open(url, "_blank");
+          } catch(e) {}
+        }
+      }, 1000);
+    }
+
+    async function stopService(id, port, pid) {
+      if (!confirm(`确定要停止此服务 (端口 :${port}${pid ? ', PID ' + pid : ''}) 吗？`)) return;
+      showToast(`正在停止端口 :${port} 进程...`);
+      try {
+        const res = await fetch("/api/launchpad/service/stop", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, port, pid })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "服务已成功停止");
+          if (json.data) {
+            appData = json.data;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+        } else {
+          showToast("❌ 停止失败: " + (json.message || "未知错误"));
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+      }
+    }
+
+    async function runTask(id, name) {
+      showToast(`⚡ 正在执行批处理任务「${name}」...`);
+      try {
+        const res = await fetch("/api/launchpad/task/run", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "任务已在新控制台中执行！");
+          if (json.launchpad) {
+            appData.launchpad = json.launchpad;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+        } else {
+          showToast("❌ 执行失败: " + (json.message || "未知错误"));
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+      }
+    }
+
+    // ===== 登记/编辑服务弹窗 =====
+    function openServiceModal() {
+      document.getElementById("serviceModalTitle").textContent = "🚀 登记开发服务";
+      document.getElementById("formServiceId").value = "";
+      document.getElementById("formServiceName").value = "";
+      document.getElementById("formServiceIcon").value = "🚀";
+      document.getElementById("formServicePort").value = "";
+      document.getElementById("formServiceCategory").value = "Python 后端";
+      document.getElementById("formServiceCommand").value = "";
+      document.getElementById("formServiceCwd").value = "";
+      document.getElementById("formServiceFramework").value = "Python";
+      document.getElementById("serviceModal").classList.add("show");
+    }
+
+    function editService(s) {
+      document.getElementById("serviceModalTitle").textContent = `✏️ 编辑服务登记 · ${s.name}`;
+      document.getElementById("formServiceId").value = s.id || "";
+      document.getElementById("formServiceName").value = s.name || "";
+      document.getElementById("formServiceIcon").value = s.icon || "🚀";
+      document.getElementById("formServicePort").value = s.port || "";
+      document.getElementById("formServiceCategory").value = s.category || "默认";
+      document.getElementById("formServiceCommand").value = s.command || "";
+      document.getElementById("formServiceCwd").value = s.cwd || "";
+      document.getElementById("formServiceFramework").value = s.framework || "Web";
+      document.getElementById("serviceModal").classList.add("show");
+    }
+
+    function closeServiceModal() {
+      document.getElementById("serviceModal").classList.remove("show");
+    }
+
+    function useCurrentWorkspaceForService() {
+      const curDir = (appData && (appData.base_dir || appData.cwd)) || ".";
+      document.getElementById("formServiceCwd").value = curDir;
+    }
+
+    async function saveServiceSubmit() {
+      const id = document.getElementById("formServiceId").value;
+      const name = document.getElementById("formServiceName").value.trim();
+      const icon = document.getElementById("formServiceIcon").value.trim() || "🚀";
+      const port = parseInt(document.getElementById("formServicePort").value, 10);
+      const category = document.getElementById("formServiceCategory").value.trim() || "默认";
+      const command = document.getElementById("formServiceCommand").value.trim();
+      const cwd = document.getElementById("formServiceCwd").value.trim();
+      const framework = document.getElementById("formServiceFramework").value.trim() || "Web";
+
+      if (!name || isNaN(port) || !command) {
+        alert("请填写完整的服务名称、目标端口和启动命令！");
+        return;
+      }
+
+      const payload = {
+        id: id || undefined,
+        name,
+        icon,
+        port,
+        category,
+        command,
+        cwd,
+        framework,
+      };
+
+      try {
+        const res = await fetch("/api/launchpad/service/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ service: payload })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "服务登记成功");
+          closeServiceModal();
+          if (json.launchpad) {
+            appData.launchpad = json.launchpad;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+        } else {
+          showToast("❌ 保存失败: " + (json.message || "未知错误"));
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+      }
+    }
+
+    async function deleteService(id, name) {
+      if (!confirm(`确定要从启动台中注销服务「${name}」吗？`)) return;
+      try {
+        const res = await fetch("/api/launchpad/service/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "服务已删除");
+          if (json.launchpad) {
+            appData.launchpad = json.launchpad;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+        }
+      } catch (e) {
+        showToast("❌ 操作失败: " + e.message);
+      }
+    }
+
+    // ===== 登记/编辑任务弹窗 =====
+    function openTaskModal() {
+      document.getElementById("taskModalTitle").textContent = "⚡ 新增批处理任务";
+      document.getElementById("formTaskId").value = "";
+      document.getElementById("formTaskName").value = "";
+      document.getElementById("formTaskIcon").value = "⚡";
+      document.getElementById("formTaskCommand").value = "";
+      document.getElementById("formTaskCwd").value = "";
+      document.getElementById("formTaskCategory").value = "工程构建";
+      document.getElementById("taskModal").classList.add("show");
+    }
+
+    function editTask(t) {
+      document.getElementById("taskModalTitle").textContent = `✏️ 编辑任务 · ${t.name}`;
+      document.getElementById("formTaskId").value = t.id || "";
+      document.getElementById("formTaskName").value = t.name || "";
+      document.getElementById("formTaskIcon").value = t.icon || "⚡";
+      document.getElementById("formTaskCommand").value = t.command || "";
+      document.getElementById("formTaskCwd").value = t.cwd || "";
+      document.getElementById("formTaskCategory").value = t.category || "工程构建";
+      document.getElementById("taskModal").classList.add("show");
+    }
+
+    function closeTaskModal() {
+      document.getElementById("taskModal").classList.remove("show");
+    }
+
+    function useCurrentWorkspaceForTask() {
+      const curDir = (appData && (appData.base_dir || appData.cwd)) || ".";
+      document.getElementById("formTaskCwd").value = curDir;
+    }
+
+    async function saveTaskSubmit() {
+      const id = document.getElementById("formTaskId").value;
+      const name = document.getElementById("formTaskName").value.trim();
+      const icon = document.getElementById("formTaskIcon").value.trim() || "⚡";
+      const command = document.getElementById("formTaskCommand").value.trim();
+      const cwd = document.getElementById("formTaskCwd").value.trim();
+      const category = document.getElementById("formTaskCategory").value.trim() || "工程构建";
+
+      if (!name || !command) {
+        alert("请填写任务名称与执行命令！");
+        return;
+      }
+
+      const payload = {
+        id: id || undefined,
+        name,
+        icon,
+        command,
+        cwd,
+        category,
+      };
+
+      try {
+        const res = await fetch("/api/launchpad/task/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ task: payload })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "任务已保存");
+          closeTaskModal();
+          if (json.launchpad) {
+            appData.launchpad = json.launchpad;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+      }
+    }
+
+    async function deleteTask(id, name) {
+      if (!confirm(`确定要删除批处理任务「${name}」吗？`)) return;
+      try {
+        const res = await fetch("/api/launchpad/task/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || "任务已删除");
+          if (json.launchpad) {
+            appData.launchpad = json.launchpad;
+            updateSidebarAndStats();
+            renderLaunchpad();
+          }
+        }
+      } catch (e) {
+        showToast("❌ 操作失败: " + e.message);
+      }
+    }
+
+    // ===== 智能导入当前正在运行的开发端口至启动台 =====
+    async function importDetectedServices() {
+      const devPorts = appData.dev_ports || [];
+      if (!devPorts.length) {
+        showToast("当前暂无运行中的开发端口");
+        return;
+      }
+      showToast(`正在将 ${devPorts.length} 个运行中的端口同步至启动台...`);
+      let count = 0;
+      for (const p of devPorts) {
+        const sPayload = {
+          name: p.alias || p.project || `开发服务 :${p.port}`,
+          port: p.port,
+          command: p.command || "-",
+          cwd: p.cwd || "",
+          category: p.framework ? (p.framework.includes("Python") ? "Python 后端" : (p.framework.includes("Node") || p.framework.includes("Vite") ? "Web 前端" : "服务")) : "默认",
+          framework: p.framework || "Web",
+          icon: p.framework && p.framework.includes("Python") ? "🐍" : (p.framework && p.framework.includes("Vite") ? "⚛️" : "🚀")
+        };
+        try {
+          await fetch("/api/launchpad/service/save", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ service: sPayload })
+          });
+          count++;
+        } catch (e) {}
+      }
+      showToast(`✅ 已同步登记 ${count} 个活跃服务！`);
+      fetchStatus();
+    }
+
+    // ==========================================
+    // 📈 服务监控 (SERVICE MONITOR) 逻辑与渲染
+    // ==========================================
+    function switchMonitorSubTab(subTab, el) {
+      currentMonitorSubTab = subTab;
+      document.querySelectorAll(".monitor-tabs .tab").forEach(b => b.classList.remove("active"));
+      if (el) el.classList.add("active");
+      renderMonitorTable();
+    }
+
+    function renderMonitorTable() {
+      const panel = document.getElementById("monitorPanel");
+      const q = (document.getElementById("searchMonitor").value || "").trim().toLowerCase();
+
+      if (currentMonitorSubTab === "cli") {
+        panel.innerHTML = `<pre class="cli-pre">${escapeHtml(appData.cli_output)}</pre>`;
+        return;
+      }
+
+      if (currentMonitorSubTab === "watch") {
+        const events = (appData.events || []).filter(e =>
+          !q || String(e.port).includes(q) || (e.process || "").toLowerCase().includes(q) || (e.framework || "").toLowerCase().includes(q)
+        );
+        if (!events.length) {
+          panel.innerHTML = `<div style="padding:36px;text-align:center;color:var(--muted);">暂无匹配的端口变动事件</div>`;
+          return;
+        }
+        panel.innerHTML = `<div class="event-list">${events.map(e => {
+          const color = e.type === "STOPPED" ? "#ef4444" : (e.type === "STARTED" ? "#22c55e" : "#38bdf8");
+          return `<div class="event-item">
+            <span class="mono" style="color:var(--muted)">[${escapeHtml(e.time)}]</span>
+            <span class="mono" style="color:${color};font-weight:700;width:75px;">${escapeHtml(e.type)}</span>
+            <span class="port-pill">:${e.port}</span>
+            <span>进程: <b>${escapeHtml(e.process)}</b> (PID ${e.pid})</span>
+            <span class="fw-tag">${escapeHtml(e.framework)}</span>
+            <span style="color:var(--muted)">项目: ${escapeHtml(e.project)}</span>
+          </div>`;
+        }).join("")}</div>`;
+        return;
+      }
+
+      if (currentMonitorSubTab === "ps") {
+        const rows = (appData.dev_processes || []).filter(p =>
+          !q || String(p.pid).includes(q) || (p.process || "").toLowerCase().includes(q) ||
+          (p.framework || "").toLowerCase().includes(q) || (p.command || "").toLowerCase().includes(q) ||
+          (p.project || "").toLowerCase().includes(q) || (p.cwd || "").toLowerCase().includes(q)
+        );
+        panel.innerHTML = `<table>
+          <thead>
+            <tr>
+              <th>PID</th><th>进程名</th><th>框架 / 类型</th><th>项目</th><th>路径</th><th>内存</th><th>运行时长</th><th>启动命令行</th><th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(p => `<tr>
+              <td class="mono pid-link" onclick='showDetail(${JSON.stringify(p).replace(/'/g, "&#39;")})' title="点击查看详情">${p.pid}</td>
+              <td><b>${escapeHtml(p.process)}</b> ${p.listening ? '<span class="badge-live" style="padding:1px 6px;font-size:10px;">监听中</span>' : ''}</td>
+              <td><span class="fw-tag">${escapeHtml(p.framework)}</span></td>
+              <td class="mono">${escapeHtml(p.project)}</td>
+              <td>
+                <div class="path-cell mono" onclick="openTargetDir(null, ${p.pid})" title="点击直达文件夹: ${escapeHtml(p.cwd)}">
+                  ${escapeHtml(p.cwd || "-")}
+                </div>
+              </td>
+              <td class="mono">${escapeHtml(p.memory)}</td>
+              <td class="mono">${escapeHtml(p.uptime)}</td>
+              <td><div class="cmd-preview" title="${escapeHtml(p.command)}">${escapeHtml(p.command)}</div></td>
+              <td style="display:flex;gap:8px;align-items:center;">
+                <button class="btn btn-sm btn-folder" onclick="openTargetDir(null, ${p.pid}, null, true)" title="在 ${appData && appData.has_dopus ? 'Directory Opus' : '文件资源管理器'} 中定位并选中">📁 定位</button>
+                <button class="btn btn-danger" onclick="killTarget(null, ${p.pid}, '${escapeHtml(p.process)}')">⚡ 结束进程</button>
+              </td>
+            </tr>`).join("")}
+          </tbody>
+        </table>`;
+        return;
+      }
+
+      // dev_ports 或 all_ports
+      const source = currentMonitorSubTab === "dev" ? (appData.dev_ports || []) : (appData.all_ports || []);
+      const rows = source.filter(p =>
+        !q || String(p.port).includes(q) || String(p.pid).includes(q) ||
+        (p.process || "").toLowerCase().includes(q) ||
+        (p.alias || "").toLowerCase().includes(q) ||
+        (p.auto_title || "").toLowerCase().includes(q) ||
+        (p.project || "").toLowerCase().includes(q) ||
+        (p.cwd || "").toLowerCase().includes(q) ||
+        (p.framework || "").toLowerCase().includes(q) ||
+        (p.command || "").toLowerCase().includes(q)
+      );
+
+      if (!rows.length) {
+        panel.innerHTML = `<div style="padding:40px;text-align:center;color:var(--muted);">没有找到匹配的监听端口</div>`;
+        return;
+      }
+
+      panel.innerHTML = `<table>
+        <thead>
+          <tr>
+            <th>PORT</th>
+            <th>PROCESS</th>
+            <th>备注 / 网页名 (ALIAS)</th>
+            <th>PID</th>
+            <th>MEM</th>
+            <th>FRAMEWORK</th>
+            <th>UPTIME</th>
+            <th>PROJECT</th>
+            <th>操作 (ACTIONS)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(p => `<tr>
+            <td><span class="port-pill">:${p.port}</span></td>
+            <td><b>${escapeHtml(p.process)}</b></td>
+            <td class="alias-cell" id="alias-cell-${p.port}">
+              ${renderAliasBadge(p)}
+            </td>
+            <td class="mono pid-link" onclick='showDetail(${JSON.stringify(p).replace(/'/g, "&#39;")})' title="点击查看详情">${p.pid}</td>
+            <td class="mono">${escapeHtml(p.memory)}</td>
+            <td><span class="fw-tag">${escapeHtml(p.framework)}</span></td>
+            <td class="mono">${escapeHtml(p.uptime)}</td>
+            <td class="mono pid-link" onclick="openTargetDir(${p.port}, ${p.pid}, null, true)" title="完整路径: ${escapeHtml(p.cwd || '-')} (点击在 ${appData && appData.has_dopus ? 'Directory Opus' : '资源管理器'} 中定位并选中)">${escapeHtml(p.project)}</td>
+            <td style="display:flex;gap:6px;align-items:center;">
+              <a class="btn btn-sm" href="http://127.0.0.1:${p.port}" target="_blank" title="在浏览器打开 http://127.0.0.1:${p.port}">🌐 访问</a>
+              <button class="btn btn-sm" onclick="restartTarget(${p.port}, ${p.pid}, '${escapeHtml(p.process)}')" title="重启该端口服务">🔄 重启</button>
+              <button class="btn btn-sm btn-folder" onclick="openTargetDir(${p.port}, ${p.pid}, null, true)" title="在 ${appData && appData.has_dopus ? 'Directory Opus' : '文件资源管理器'} 中定位并选中: ${escapeHtml(p.cwd)}">📁 定位</button>
+              <button class="btn btn-danger" onclick="killTarget(${p.port}, ${p.pid}, '${escapeHtml(p.process)}')">⚡ 释放端口</button>
+            </td>
+          </tr>`).join("")}
+        </tbody>
+      </table>`;
+    }
+
+    // ==========================================
+    // 📋 防撞档案 (PORT REGISTRY) 逻辑与渲染
+    // ==========================================
+    function renderRegistryTable() {
+      const panel = document.getElementById("registryPanel");
+      const historyList = appData.history_ports || [];
+      const activeCount = historyList.filter(p => p.is_active).length;
+      const offlineCount = historyList.length - activeCount;
+      const suggested = appData.suggested_ports || [];
+
+      let bannerHtml = `
+        <div style="background:var(--card);border-bottom:1px solid var(--border);padding:14px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <span style="font-size:22px;">📋</span>
+            <div>
+              <div style="font-weight:700;color:var(--text);font-size:14px;">本机端口防冲突历史档案簿 (已分配预留清单)</div>
+              <div style="font-size:12px;color:var(--muted);margin-top:2px;">
+                共登记 <b>${historyList.length}</b> 个开发端口（<span style="color:#22c55e;font-weight:600;">${activeCount} 在线运行</span>，<span style="color:var(--muted);">${offlineCount} 离线预留</span>）。开新项目时请避开以下已被占用的历史端口！
+              </div>
+            </div>
+          </div>
+          ${suggested.length ? `
+          <div style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted);">
+            <span>✨ 推荐可用无冲突端口:</span>
+            <div style="display:flex;gap:5px;flex-wrap:wrap;">
+              ${suggested.map(sp => `<span class="port-pill mono" style="font-size:11.5px;padding:2px 8px;cursor:pointer;" onclick="copyPort('${sp}')" title="点击一键复制可用端口号">:${sp}</span>`).join("")}
+            </div>
+          </div>` : ""}
+        </div>
+      `;
+
+      if (!historyList.length) {
+        panel.innerHTML = bannerHtml + `<div style="padding:40px;text-align:center;color:var(--muted);">暂无历史端口档案记录</div>`;
+        return;
+      }
+
+      panel.innerHTML = bannerHtml + `<table>
+        <thead>
+          <tr>
+            <th>PORT</th>
+            <th>当前状态</th>
+            <th>备注 / 网页名 (ALIAS)</th>
+            <th>PID</th>
+            <th>技术栈</th>
+            <th>所属项目</th>
+            <th>工作目录 (PATH)</th>
+            <th>最后活跃 (LAST SEEN)</th>
+            <th>操作 (ACTIONS)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${historyList.map(p => {
+            const statusTag = p.is_active
+              ? `<span style="background:rgba(34,197,94,0.15);color:#22c55e;border:1px solid rgba(34,197,94,0.3);padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:600;">🟢 运行中</span>`
+              : `<span style="background:var(--card-hover);color:var(--muted);padding:2px 8px;border-radius:6px;font-size:11.5px;font-weight:500;">⚪ 离线预留</span>`;
+
+            const hasCwd = p.cwd && p.cwd !== "-";
+            const safeCwd = (p.cwd || "").replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            return `<tr>
+              <td><span class="port-pill">:${p.port}</span></td>
+              <td>${statusTag}</td>
+              <td class="alias-cell" id="alias-cell-${p.port}">
+                ${renderAliasBadge(p)}
+              </td>
+              <td class="mono ${p.pid ? 'pid-link' : ''}" ${p.pid ? `onclick='showDetail(${JSON.stringify(p).replace(/'/g, "&#39;")})' title="点击查看详情"` : ''}>
+                ${p.pid ? p.pid : '<span style="color:var(--muted);">-</span>'}
+              </td>
+              <td><span class="fw-tag">${escapeHtml(p.framework)}</span></td>
+              <td class="mono">${escapeHtml(p.project)}</td>
+              <td>
+                <div class="path-cell mono" ${hasCwd ? `onclick="openTargetDir(${p.is_active ? p.port : 'null'}, ${p.pid || 'null'}, '${safeCwd}', true)" title="点击在 ${appData.has_dopus ? 'Directory Opus' : '资源管理器'} 中定位并选中: ${escapeHtml(p.cwd)}"` : ''}>
+                  ${escapeHtml(p.cwd || "-")}
+                </div>
+              </td>
+              <td class="mono" style="font-size:11.5px;color:var(--muted);">${escapeHtml(p.last_seen)}</td>
+              <td style="display:flex;gap:6px;align-items:center;">
+                ${p.is_active ? `
+                  <a class="btn btn-sm" href="http://127.0.0.1:${p.port}" target="_blank" title="在浏览器打开 http://127.0.0.1:${p.port}">🌐 访问</a>
+                  <button class="btn btn-sm" onclick="restartTarget(${p.port}, ${p.pid}, '${escapeHtml(p.process || p.alias)}')" title="重启该端口服务">🔄 重启</button>
+                ` : ""}
+                ${hasCwd ? `
+                  <button class="btn btn-sm btn-folder" onclick="openTargetDir(${p.is_active ? p.port : 'null'}, ${p.pid || 'null'}, '${safeCwd}', true)" title="在 ${appData.has_dopus ? 'Directory Opus' : '文件资源管理器'} 中定位并选中">📁 定位</button>
+                ` : ""}
+                ${!p.is_active ? `
+                  <button class="btn btn-sm" style="color:#ef4444;" onclick="deleteHistoryPort(${p.port}, '${escapeHtml(p.alias || p.project)}')" title="从历史预留档案中注销该端口">🗑️ 释放档案</button>
+                ` : `
+                  <button class="btn btn-danger" onclick="killTarget(${p.port}, ${p.pid}, '${escapeHtml(p.process)}')">⚡ 释放端口</button>
+                `}
+              </td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+      </table>`;
+    }
+
+    // ==========================================
+    // ⚙️ 系统设置视图渲染
+    // ==========================================
+    function renderSettingsView() {
+      const dopusText = document.getElementById("dopusStatusText");
+      if (dopusText) {
+        if (appData.has_dopus) {
+          dopusText.innerHTML = `🟢 <b>Directory Opus 13/12 已就绪</b> (优先唤起并在容器内精准高亮目标)`;
+        } else {
+          dopusText.innerHTML = `⚪ <b>未检测到 Directory Opus</b> (已优雅降级为 Windows 资源管理器 explorer.exe /select)`;
+        }
+      }
+    }
+
+    // ==========================================
+    // 🏷️ 别名备注与网页嗅探
+    // ==========================================
+    function renderAliasBadge(p) {
+      const hasCustom = p.is_custom && p.alias;
+      const hasAuto = !hasCustom && p.alias;
+      const text = p.alias || "";
+      if (hasCustom) {
+        return `<div style="display:flex;align-items:center;gap:4px;">
+          <span class="alias-badge custom" onclick="startEditAlias(${p.port})" title="点击修改备注名称（已自定义保存）">
+            🏷️ <span>${escapeHtml(text)}</span> <span class="edit-icon">✏️</span>
+          </span>
+          <button class="probe-btn" onclick="probeAlias(${p.port})" title="重新嗅探网页标题">🔄</button>
+        </div>`;
+      } else if (hasAuto) {
+        return `<div style="display:flex;align-items:center;gap:4px;">
+          <span class="alias-badge auto" onclick="startEditAlias(${p.port})" title="自动识别的网页名称，点击可自定义">
+            🌐 <span>${escapeHtml(text)}</span> <span class="edit-icon">✏️</span>
+          </span>
+          <button class="probe-btn" onclick="probeAlias(${p.port})" title="重新嗅探网页标题">🔄</button>
+        </div>`;
+      } else {
+        return `<div style="display:flex;align-items:center;gap:4px;">
+          <span class="alias-badge empty" onclick="startEditAlias(${p.port})" title="点击添加自定义名称或识别网页">
+            + 点此添加备注
+          </span>
+          <button class="probe-btn" onclick="probeAlias(${p.port})" title="嗅探网页标题">🌐</button>
+        </div>`;
+      }
+    }
+
+    function startEditAlias(port) {
+      editingPort = port;
+      const cell = document.getElementById(`alias-cell-${port}`);
+      if (!cell) return;
+      const all = (appData.dev_ports || []).concat(appData.all_ports || []).concat(appData.history_ports || []);
+      const p = all.find(item => item.port === port);
+      const curVal = (p && p.alias) || "";
+      cell.innerHTML = `
+        <div class="alias-edit-box">
+          <input type="text" class="alias-input" id="alias-input-${port}" value="${escapeHtml(curVal)}" placeholder="输入名称后按回车保存..." onkeydown="handleAliasKey(event, ${port})" />
+          <button type="button" class="btn btn-sm btn-success" style="padding:4px 9px;font-size:12px;font-weight:700;" onmousedown="event.preventDefault();" onclick="confirmSaveAlias(${port})" title="保存 (Enter)">✓</button>
+          <button type="button" class="btn btn-sm" style="padding:4px 9px;font-size:12px;color:var(--muted);" onmousedown="event.preventDefault();" onclick="cancelEditAlias()" title="取消 (Esc)">✕</button>
+        </div>
+      `;
+      const inp = document.getElementById(`alias-input-${port}`);
+      if (inp) {
+        inp.focus();
+        inp.select();
+      }
+    }
+
+    function handleAliasKey(e, port) {
+      if (e.key === "Enter") {
+        confirmSaveAlias(port);
+      } else if (e.key === "Escape") {
+        cancelEditAlias();
+      }
+    }
+
+    function cancelEditAlias() {
+      editingPort = null;
+      renderCurrentView();
+    }
+
+    function confirmSaveAlias(port) {
+      const inp = document.getElementById(`alias-input-${port}`);
+      const val = inp ? inp.value : "";
+      saveAlias(port, val);
+    }
+
+    async function saveAlias(port, value) {
+      if (editingPort !== port) return;
+      editingPort = null;
+      const trimmed = (value || "").trim();
+      try {
+        const res = await fetch("/api/alias", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port, alias: trimmed })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(trimmed ? `已保存端口 :${port} 备注为 "${trimmed}"` : `已恢复 :${port} 默认别名`);
+          if (json.data) {
+            appData = json.data;
+            renderCurrentView();
+          }
+        }
+      } catch (err) {
+        showToast("保存失败: " + err.message);
+        renderCurrentView();
+      }
+    }
+
+    async function probeAlias(port) {
+      showToast(`正在探测 :${port} 网页标题...`);
+      try {
+        const res = await fetch("/api/alias/probe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port })
+        });
+        const json = await res.json();
+        if (json.ok && json.title && json.title !== "未探测到标题") {
+          showToast(`已识别网页名称: "${json.title}"`);
+          if (json.data) {
+            appData = json.data;
+            renderCurrentView();
+          }
+        } else {
+          showToast(`未探测到 :${port} 的网页标题`);
+        }
+      } catch (err) {
+        showToast("探测失败: " + err.message);
+      }
+    }
+
+    // ==========================================
+    // 📁 文件模式 (FILE MODE) 与进程详情
+    // ==========================================
+    async function openTargetDir(port, pid, fallbackPath, select = true, forceExplorer = false) {
+      const isDopus = appData && appData.has_dopus && !forceExplorer;
+      const fmName = isDopus ? "Directory Opus" : "文件资源管理器";
+      const actionText = select ? "定位并选中" : "打开";
+      showToast(`🚀 正在呼叫 ${fmName} ${actionText}...`);
+      try {
+        const res = await fetch("/api/open", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            port: port || null,
+            pid: pid || null,
+            path: fallbackPath || "",
+            select: select,
+            force_explorer: forceExplorer
+          })
+        });
+        const json = await res.json();
+        if (json.ok) {
+          showToast(json.message || `✅ 已在 ${fmName} 中${actionText}`);
+        } else {
+          showToast("❌ " + (json.message || "操作失败"));
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+      }
+    }
+
+    function showDetail(p) {
+      document.getElementById("modalTitle").textContent = `端口 :${p.port || p.pid} 详细信息 (${p.process})`;
+      const hasCwd = p.cwd && p.cwd !== "-";
+      const isDopus = appData && appData.has_dopus;
+      const fmName = isDopus ? "Directory Opus" : "资源管理器";
+      const cwdHtml = hasCwd
+        ? `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+             <span>${escapeHtml(p.cwd)}</span>
+             <button class="btn btn-sm btn-folder" onclick="openTargetDir(${p.port || 'null'}, ${p.pid}, null, true)" title="在 ${fmName} 中定位并高亮选中此项目">📁 定位选中</button>
+             <button class="btn btn-sm" onclick="openTargetDir(${p.port || 'null'}, ${p.pid}, null, false)" title="直接进入该目录内部">📂 打开目录</button>
+             <button class="btn btn-sm" onclick="openTargetDir(${p.port || 'null'}, ${p.pid}, null, true, true)" title="使用系统原生资源管理器">🪟 资源管理器</button>
+           </div>`
+        : "-";
+
+      const fields = [
+        ...(p.port ? [["监听端口", `:${p.port} (${p.address || "0.0.0.0"})`]] : []),
+        ...(p.alias !== undefined ? [["备注 / 网页名", p.alias ? (p.is_custom ? `${p.alias} (自定义)` : `${p.alias} (网页标题)`) : "未设置"]] : []),
+        ["进程名称", escapeHtml(p.process)],
+        ["进程 PID", `${p.pid} (父进程 PPID: ${p.ppid})`],
+        ["识别框架", escapeHtml(p.framework)],
+        ["所属项目", escapeHtml(p.project)],
+        ["项目目录", cwdHtml],
+        ["内存占用", escapeHtml(p.memory)],
+        ["运行时长", `${escapeHtml(p.uptime)} (启动于 ${escapeHtml(p.start_time || "-")})`],
+        ["可执行文件", escapeHtml(p.executable || "-")],
+        ["完整命令行", escapeHtml(p.command || "-")],
+      ];
+      document.getElementById("modalBody").innerHTML = fields.map(([k, v]) =>
+        `<div class="detail-row"><div class="detail-key">${k}</div><div class="detail-val">${v}</div></div>`
+      ).join("");
+
+      const footerBtns = document.getElementById("modalFooterBtns");
+      if (footerBtns) {
+        footerBtns.innerHTML = `
+          ${p.port ? `<button class="btn" onclick="restartTarget(${p.port}, ${p.pid}, '${escapeHtml(p.process)}'); closeModal();" title="重启该端口服务">🔄 重启服务</button>` : ""}
+          ${hasCwd ? `<button class="btn btn-folder" onclick="openTargetDir(${p.port || 'null'}, ${p.pid}, null, true)">📁 在 ${fmName} 中定位选中</button>` : ""}
+          ${hasCwd ? `<button class="btn" onclick="openTargetDir(${p.port || 'null'}, ${p.pid}, null, false)">📂 进入目录</button>` : ""}
+          <button class="btn" onclick="closeModal()">关闭</button>
+        `;
+      }
+      document.getElementById("detailModal").classList.add("show");
+    }
+
+    function closeModal() {
+      document.getElementById("detailModal").classList.remove("show");
+    }
+
+    async function killTarget(port, pid, name) {
+      const label = port ? `端口 :${port} (${name}, PID ${pid})` : `进程 ${name} (PID ${pid})`;
+      if (!confirm(`确定要立即终止 ${label} 吗？`)) return;
+      try {
+        const res = await fetch("/api/kill", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port, pid, force: true })
+        });
+        const json = await res.json();
+        showToast(json.message || (json.ok ? "操作成功" : "操作失败"));
+        if (json.ok && json.data) {
+          appData = json.data;
+          updateSidebarAndStats();
+          renderCurrentView();
+        }
+      } catch (e) {
+        showToast("请求失败: " + e.message);
+      }
+    }
+
+    async function restartTarget(port, pid, name) {
+      const label = port ? `端口 :${port} (${name}, PID ${pid})` : `进程 ${name} (PID ${pid})`;
+      if (!confirm(`确定要重启 ${label} 吗？\n将安全终止原进程并使用原参数重新拉起服务。`)) return;
+      showToast(`🔄 正在重启 ${label}...`);
+      try {
+        const res = await fetch("/api/restart", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port, pid })
+        });
+        const json = await res.json();
+        showToast(json.message || (json.ok ? "重启成功" : "重启失败"));
+        if (json.ok && json.data) {
+          appData = json.data;
+          updateSidebarAndStats();
+          renderCurrentView();
+        }
+      } catch (e) {
+        showToast("❌ 请求失败: " + e.message);
+      }
+    }
+
+    async function deleteHistoryPort(port, name) {
+      if (!confirm(`确定要从历史预留档案中注销端口 :${port} (${name || '未命名'}) 吗？\n注销后该端口将不再列入历史预留清单。`)) return;
+      try {
+        const res = await fetch("/api/alias/delete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ port })
+        });
+        const json = await res.json();
+        showToast(json.message || "已清理档案");
+        if (json.ok && json.data) {
+          appData = json.data;
+          updateSidebarAndStats();
+          renderCurrentView();
+        }
+      } catch (e) {
+        showToast("❌ 操作失败: " + e.message);
+      }
+    }
+
+    // ==========================================
+    // 🎨 外观主题切换管理 (深色 / 浅色 / 跟随系统)
+    // ==========================================
+    const THEME_STORAGE_KEY = "kiri_theme_preference";
+    let themePreference = localStorage.getItem(THEME_STORAGE_KEY) || "system";
+    const systemDarkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+
+    function applyTheme(pref, notify = false) {
+      themePreference = pref;
+      localStorage.setItem(THEME_STORAGE_KEY, pref);
+
+      const isSystemDark = systemDarkQuery.matches;
+      const effectiveTheme = pref === "system" ? (isSystemDark ? "dark" : "light") : pref;
+
+      document.documentElement.setAttribute("data-theme", effectiveTheme);
+      document.documentElement.setAttribute("data-theme-preference", pref);
+
+      document.querySelectorAll(".theme-btn").forEach(btn => {
+        btn.classList.toggle("active", btn.getAttribute("data-theme-val") === pref);
+      });
+
+      if (notify) {
+        const labels = {
+          dark: "🌙 深色模式",
+          light: "☀️ 浅色模式",
+          system: `💻 跟随系统 (${isSystemDark ? "系统当前为深色" : "系统当前为浅色"})`
+        };
+        showToast(`已切换外观: ${labels[pref] || pref}`);
+      }
+    }
+
+    function setTheme(pref) {
+      applyTheme(pref, true);
+    }
+
+    systemDarkQuery.addEventListener("change", () => {
+      if (themePreference === "system") {
+        applyTheme("system", false);
+      }
+    });
+
+    applyTheme(themePreference, false);
+
+    // 全局支持将从属子端口胶囊往外拖拽并在可视区任意空白位置松手即解散
+    window.addEventListener("dragover", (e) => {
+      if (draggedChildPillId) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+      }
+    });
+    window.addEventListener("drop", async (e) => {
+      if (draggedChildPillId) {
+        e.preventDefault();
+        const childId = draggedChildPillId;
+        draggedChildPillId = null;
+        draggedChildPillParentId = null;
+        await ungroupService(childId);
+      }
+    });
+
+    // 初始化加载
+    initSidebarCollapse();
+    updateViewModeUI();
+    fetchStatus();
+    timer = setInterval(() => {
+      if (autoRefresh && editingPort === null) fetchStatus();
+    }, 3000);
+  </script>
+</body>
+</html>

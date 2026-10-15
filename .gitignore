@@ -1,5 +1,30 @@
 /target/
 .DS_Store
 .idea/
+.vscode/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
 scripts/__pycache__/
+
+# Executables & Local Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.pdb
+
+# Local Machine State & Port Registry (隐私保护：防止个人磁盘路径与项目名入库)
+kiri_services.json
+port_aliases.json
+kiri_history.json
+*.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
 assets/codex-pet/kiri/source-spritesheet.png

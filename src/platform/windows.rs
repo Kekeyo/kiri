@@ -194,7 +194,22 @@ pub fn batch_cwd(pids: &[u32]) -> HashMap<u32, PathBuf> {
         return HashMap::new();
     }
 
-    let filter = pids
+    let mut cwd_map = HashMap::new();
+    let mut fallback_pids = Vec::new();
+
+    for &pid in pids {
+        if let Some(cwd) = read_process_cwd(pid) {
+            cwd_map.insert(pid, cwd);
+        } else {
+            fallback_pids.push(pid);
+        }
+    }
+
+    if fallback_pids.is_empty() {
+        return cwd_map;
+    }
+
+    let filter = fallback_pids
         .iter()
         .map(|pid| format!("ProcessId = {pid}"))
         .collect::<Vec<String>>()
@@ -213,10 +228,163 @@ Get-CimInstance Win32_Process -Filter '{escaped_filter}' | ForEach-Object {{
 "#
     );
 
-    let Ok(raw) = powershell_output(&script) else {
-        return HashMap::new();
-    };
-    parse_cwd_json(&raw)
+    if let Ok(raw) = powershell_output(&script) {
+        for (pid, path) in parse_cwd_json(&raw) {
+            cwd_map.entry(pid).or_insert(path);
+        }
+    }
+
+    cwd_map
+}
+
+pub fn normalize_windows_cwd(raw: &str) -> Option<PathBuf> {
+    let trimmed = raw.trim_end_matches('\0').trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    let without_verbatim = trimmed.strip_prefix(r"\\?\").unwrap_or(trimmed);
+    let stripped = without_verbatim.trim_end_matches(['\\', '/']);
+    if stripped.is_empty() {
+        return None;
+    }
+
+    if stripped.len() == 2 && stripped.as_bytes()[1] == b':' {
+        return Some(PathBuf::from(format!("{stripped}\\")));
+    }
+
+    Some(PathBuf::from(stripped))
+}
+
+#[cfg(target_pointer_width = "64")]
+fn read_process_cwd(pid: u32) -> Option<PathBuf> {
+    use std::ffi::c_void;
+    use std::mem::{size_of, zeroed};
+
+    const PROCESS_QUERY_INFORMATION: u32 = 0x0400;
+    const PROCESS_VM_READ: u32 = 0x0010;
+    const PEB_PROCESS_PARAMETERS_OFFSET: usize = 0x20;
+    const CURRENT_DIRECTORY_DOS_PATH_OFFSET: usize = 0x38;
+
+    #[repr(C)]
+    struct ProcessBasicInformation {
+        reserved1: usize,
+        peb_base_address: usize,
+        reserved2: [usize; 2],
+        unique_process_id: usize,
+        reserved3: usize,
+    }
+
+    #[repr(C)]
+    struct UnicodeString {
+        length: u16,
+        maximum_length: u16,
+        _pad: u32,
+        buffer: usize,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn OpenProcess(desired_access: u32, inherit_handle: i32, process_id: u32) -> *mut c_void;
+        fn CloseHandle(object: *mut c_void) -> i32;
+        fn ReadProcessMemory(
+            process: *mut c_void,
+            base_address: *const c_void,
+            buffer: *mut c_void,
+            size: usize,
+            number_of_bytes_read: *mut usize,
+        ) -> i32;
+    }
+
+    #[link(name = "ntdll")]
+    extern "system" {
+        fn NtQueryInformationProcess(
+            process_handle: *mut c_void,
+            process_information_class: u32,
+            process_information: *mut c_void,
+            process_information_length: u32,
+            return_length: *mut u32,
+        ) -> i32;
+    }
+
+    if pid <= 4 {
+        return None;
+    }
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid);
+        if handle.is_null() {
+            return None;
+        }
+
+        let result = (|| {
+            let mut pbi: ProcessBasicInformation = zeroed();
+            let mut return_length: u32 = 0;
+            let status = NtQueryInformationProcess(
+                handle,
+                0,
+                (&mut pbi as *mut ProcessBasicInformation).cast::<c_void>(),
+                size_of::<ProcessBasicInformation>() as u32,
+                &mut return_length,
+            );
+            if status != 0 || pbi.peb_base_address == 0 {
+                return None;
+            }
+
+            let mut process_parameters: usize = 0;
+            let mut bytes_read: usize = 0;
+            if ReadProcessMemory(
+                handle,
+                (pbi.peb_base_address + PEB_PROCESS_PARAMETERS_OFFSET) as *const c_void,
+                (&mut process_parameters as *mut usize).cast::<c_void>(),
+                size_of::<usize>(),
+                &mut bytes_read,
+            ) == 0
+                || process_parameters == 0
+            {
+                return None;
+            }
+
+            let mut dos_path: UnicodeString = zeroed();
+            if ReadProcessMemory(
+                handle,
+                (process_parameters + CURRENT_DIRECTORY_DOS_PATH_OFFSET) as *const c_void,
+                (&mut dos_path as *mut UnicodeString).cast::<c_void>(),
+                size_of::<UnicodeString>(),
+                &mut bytes_read,
+            ) == 0
+                || dos_path.length == 0
+                || dos_path.length % 2 != 0
+                || dos_path.buffer == 0
+            {
+                return None;
+            }
+
+            let unit_count = (dos_path.length / 2) as usize;
+            let mut utf16_buf = vec![0u16; unit_count];
+            if ReadProcessMemory(
+                handle,
+                dos_path.buffer as *const c_void,
+                utf16_buf.as_mut_ptr().cast::<c_void>(),
+                dos_path.length as usize,
+                &mut bytes_read,
+            ) == 0
+            {
+                return None;
+            }
+
+            let raw = String::from_utf16(&utf16_buf).ok()?;
+            normalize_windows_cwd(&raw)
+        })();
+
+        CloseHandle(handle);
+        result
+    }
+}
+
+#[cfg(not(target_pointer_width = "64"))]
+fn read_process_cwd(_pid: u32) -> Option<PathBuf> {
+    None
 }
 
 pub fn get_all_processes_raw() -> Vec<RawProcessEntry> {
@@ -316,6 +484,7 @@ pub fn parse_all_process_json(raw: &str, current_pid: u32) -> Vec<RawProcessEntr
 fn powershell_output(script: &str) -> Result<String, PlatformError> {
     let output = Command::new("powershell")
         .args(["-NoProfile", "-NonInteractive", "-Command", script])
+        .stdin(std::process::Stdio::null())
         .output()
         .map_err(|error| PlatformError::new("powershell", error.to_string()))?;
 
@@ -463,5 +632,35 @@ mod tests {
         assert_eq!(entries[0].cpu, 2.5);
         assert_eq!(entries[0].mem_percent, 1.5);
         assert_eq!(entries[0].rss_kb, 10240);
+    }
+
+    #[test]
+    fn normalizes_windows_cwd_paths_and_preserves_drive_roots() {
+        assert_eq!(
+            normalize_windows_cwd("C:\\projects\\demo-app\\"),
+            Some(PathBuf::from("C:\\projects\\demo-app"))
+        );
+        assert_eq!(
+            normalize_windows_cwd("\\\\?\\D:\\workspace\\web-client\\\0"),
+            Some(PathBuf::from("D:\\workspace\\web-client"))
+        );
+        assert_eq!(
+            normalize_windows_cwd("C:\\"),
+            Some(PathBuf::from("C:\\"))
+        );
+        assert_eq!(normalize_windows_cwd(""), None);
+        assert_eq!(normalize_windows_cwd("   \0"), None);
+    }
+
+    #[test]
+    fn reads_real_cwd_for_current_process() {
+        let pid = std::process::id();
+        let expected = std::env::current_dir()
+            .ok()
+            .and_then(|dir| normalize_windows_cwd(&dir.to_string_lossy()));
+
+        assert_eq!(read_process_cwd(pid), expected);
+        assert_eq!(read_process_cwd(0), None);
+        assert_eq!(read_process_cwd(4), None);
     }
 }

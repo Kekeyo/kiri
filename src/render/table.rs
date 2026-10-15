@@ -15,18 +15,19 @@ const BORDER_GRAY: &str = "\x1b[38;2;163;163;163m";
 const BORDER_BLACK: &str = "\x1b[38;2;0;0;0m";
 const DOT_GREEN: &str = "\x1b[38;2;34;197;94m";
 
-const DEFAULT_TERMINAL_WIDTH: usize = 112;
+const DEFAULT_TERMINAL_WIDTH: usize = 140;
 const MIN_TERMINAL_WIDTH_FOR_KIRI_SPRITE: usize = 48;
-const COLUMN_COUNT: usize = 8;
+const COLUMN_COUNT: usize = 9;
 const PORT_COL: usize = 0;
 const PROCESS_COL: usize = 1;
 #[cfg(test)]
 const PID_COL: usize = 2;
 const MEMORY_COL: usize = 3;
-const PROJECT_COL: usize = 4;
-const FRAMEWORK_COL: usize = 5;
-const UPTIME_COL: usize = 6;
-const STATUS_COL: usize = 7;
+const FRAMEWORK_COL: usize = 4;
+const UPTIME_COL: usize = 5;
+const STATUS_COL: usize = 6;
+const PROJECT_COL: usize = 7;
+const PATH_COL: usize = 8;
 const BORDER_OVERHEAD: usize = 1 + COLUMN_COUNT * 3;
 
 const HEADERS: [&str; COLUMN_COUNT] = [
@@ -34,10 +35,11 @@ const HEADERS: [&str; COLUMN_COUNT] = [
     "Process",
     "PID",
     "Mem",
-    "Project",
     "Framework",
     "Uptime",
     "Status",
+    "Project",
+    "Path",
 ];
 
 const PROCESS_COLUMN_COUNT: usize = 6;
@@ -53,13 +55,14 @@ const PROCESS_HEADERS: [&str; PROCESS_COLUMN_COUNT] =
 
 const COLUMN_SPECS: [ColumnSpec; COLUMN_COUNT] = [
     ColumnSpec::stable(5),
-    ColumnSpec::flex(7, 5, 3),
+    ColumnSpec::flex(7, 5, 4),
     ColumnSpec::stable(5),
-    ColumnSpec::flex(8, 3, 4),
-    ColumnSpec::flex(7, 4, 1),
-    ColumnSpec::flex(12, 4, 2),
+    ColumnSpec::flex(8, 3, 5),
+    ColumnSpec::flex(12, 4, 3),
     ColumnSpec::stable(6),
-    ColumnSpec::flex(9, 8, 5),
+    ColumnSpec::flex(9, 8, 6),
+    ColumnSpec::flex(7, 4, 2),
+    ColumnSpec::flex(16, 8, 1),
 ];
 
 const PROCESS_COLUMN_SPECS: [ColumnSpec; PROCESS_COLUMN_COUNT] = [
@@ -397,10 +400,14 @@ fn port_rows(ports: &[PortInfo]) -> Vec<TableRow> {
                 port.process.name.clone(),
                 port.process.pid.to_string(),
                 port.memory.clone().unwrap_or_else(|| "-".to_string()),
-                port.project_name.clone().unwrap_or_else(|| "-".to_string()),
                 port.framework.clone().unwrap_or_else(|| "-".to_string()),
                 port.uptime.clone().unwrap_or_else(|| "-".to_string()),
                 port.status.as_str().to_string(),
+                port.project_name.clone().unwrap_or_else(|| "-".to_string()),
+                port.cwd
+                    .as_ref()
+                    .map(|path| path.display().to_string())
+                    .unwrap_or_else(|| "-".to_string()),
             ],
         })
         .collect()
@@ -711,13 +718,6 @@ fn style_table_cell(index: usize, value: &str, padded: &str) -> String {
         PORT_COL => colorize_bold(padded, BLUE),
         PROCESS_COL => colorize(padded, PURPLE),
         MEMORY_COL => style_memory(value, padded),
-        PROJECT_COL => {
-            if value == "-" {
-                colorize(padded, BORDER_GRAY)
-            } else {
-                colorize(padded, LIME)
-            }
-        }
         FRAMEWORK_COL => style_framework(value, padded),
         UPTIME_COL => {
             if value == "-" {
@@ -727,6 +727,20 @@ fn style_table_cell(index: usize, value: &str, padded: &str) -> String {
             }
         }
         STATUS_COL => style_status(value, padded),
+        PROJECT_COL => {
+            if value == "-" {
+                colorize(padded, BORDER_GRAY)
+            } else {
+                colorize(padded, LIME)
+            }
+        }
+        PATH_COL => {
+            if value == "-" {
+                colorize(padded, BORDER_GRAY)
+            } else {
+                colorize(padded, INDIGO)
+            }
+        }
         _ => padded.to_string(),
     }
 }
@@ -1062,12 +1076,21 @@ mod tests {
     #[test]
     fn column_widths_use_ideal_widths_when_terminal_is_wide_enough() {
         let rows = vec![table_row([
-            "5173", "node", "1296", "12.1 MB", "frontend", "Vite", "14h 2m", "healthy",
+            "5173",
+            "node",
+            "1296",
+            "12.1 MB",
+            "Vite",
+            "14h 2m",
+            "healthy",
+            "frontend",
+            "/Users/dev/project",
         ])];
 
         let widths = calculate_column_widths(&rows, 160);
 
         assert_eq!(widths[PROJECT_COL], "frontend".len());
+        assert_eq!(widths[PATH_COL], "/Users/dev/project".len());
         assert_eq!(widths[FRAMEWORK_COL], 12);
         assert!(total_table_width(&widths) <= 160);
     }
@@ -1079,15 +1102,16 @@ mod tests {
             "very-long-node-wrapper",
             "1296",
             "512.1 MB",
-            "project-name-that-is-far-too-long-for-a-narrow-terminal",
             "FrameworkNameThatShouldShrink",
             "14h 2m",
             "healthy",
+            "project-name-that-is-far-too-long-for-a-narrow-terminal",
+            "/Users/dev/project-name-that-is-far-too-long-for-a-narrow-terminal",
         ])];
 
-        let widths = calculate_column_widths(&rows, 72);
+        let widths = calculate_column_widths(&rows, 90);
 
-        assert!(total_table_width(&widths) <= 72);
+        assert!(total_table_width(&widths) <= 90);
         assert!(
             widths[PROJECT_COL] < "project-name-that-is-far-too-long-for-a-narrow-terminal".len()
         );
@@ -1101,13 +1125,14 @@ mod tests {
             "node",
             "99999",
             "12.1 MB",
-            "long-project-name-that-can-shrink",
             "Vite",
             "12d 4h",
             "healthy",
+            "long-project-name-that-can-shrink",
+            "/Users/dev/long-project-name-that-can-shrink",
         ])];
 
-        let widths = calculate_column_widths(&rows, 72);
+        let widths = calculate_column_widths(&rows, 90);
 
         assert!(widths[PORT_COL] >= 6);
         assert!(widths[PID_COL] >= 5);

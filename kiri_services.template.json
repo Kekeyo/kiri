@@ -1,0 +1,62 @@
+{
+  "services": [
+    {
+      "id": "srv_7788",
+      "name": "Kiri Web 端口监控与启动台",
+      "category": "系统管控",
+      "port": 7788,
+      "command": "python kiri_web.py --no-browser",
+      "cwd": ".",
+      "framework": "Kiri Web",
+      "icon": "⚡",
+      "created_at": "2026-10-16 00:00:00",
+      "updated_at": "2026-10-16 00:00:00"
+    },
+    {
+      "id": "srv_3000",
+      "name": "Web 前端应用 (示例)",
+      "category": "Web 前端",
+      "port": 3000,
+      "command": "npm run dev",
+      "cwd": ".",
+      "framework": "Vite",
+      "icon": "🌐",
+      "created_at": "2026-10-16 00:00:00",
+      "updated_at": "2026-10-16 00:00:00"
+    },
+    {
+      "id": "srv_8000",
+      "name": "后端 API 服务 (示例)",
+      "category": "后端服务",
+      "port": 8000,
+      "command": "python -m uvicorn main:app --reload --port 8000",
+      "cwd": ".",
+      "framework": "FastAPI",
+      "icon": "🚀",
+      "created_at": "2026-10-16 00:00:00",
+      "updated_at": "2026-10-16 00:00:00"
+    }
+  ],
+  "tasks": [
+    {
+      "id": "task_build",
+      "name": "构建 Rust 端口内核",
+      "category": "工程构建",
+      "command": "cargo build --release",
+      "cwd": ".",
+      "icon": "🦀",
+      "last_run": "-",
+      "last_status": "idle"
+    },
+    {
+      "id": "task_clean",
+      "name": "清理 Python 字节码缓存",
+      "category": "清理维护",
+      "command": "powershell -Command \"Get-ChildItem -Recurse -Filter __pycache__ | Remove-Item -Recurse -Force\"",
+      "cwd": ".",
+      "icon": "🧹",
+      "last_run": "-",
+      "last_status": "idle"
+    }
+  ]
+}
