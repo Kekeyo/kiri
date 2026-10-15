@@ -21,7 +21,16 @@
   <img alt="Web Dashboard" src="https://img.shields.io/badge/Dashboard-Web%20GUI-blue" />
   <img alt="Core" src="https://img.shields.io/badge/Engine-Python%20%7C%20Rust-orange" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-purple" />
+  <a href="https://github.com/GaoSSR/Kiri"><img alt="Upstream: GaoSSR/Kiri" src="https://img.shields.io/badge/Upstream-GaoSSR%2FKiri-blue?logo=github" /></a>
 </p>
+
+> [!NOTE]
+> **开源溯源与致谢声明 (Upstream Origin & Attribution)**：
+> 本项目核心引擎基于 **[@GaoSSR](https://github.com/GaoSSR)** 原创打造的高性能开源项目 **[GaoSSR/Kiri](https://github.com/GaoSSR/Kiri)** 进行深度二次开发与现代化架构扩展。
+> 在其优秀的 Rust 端口监控内核基础之上，本项目全新研发并集成了 **Kiri Launchpad Web 启动台**、**服务四键极速管控**、**文件夹卡片折叠与向外拖拽解散机制**、**Win32 内核级工作目录精准识别** 以及 **Directory Opus 物理屏幕穿透文件模式**。
+>
+> - 🔗 **上游官方原项目**：[https://github.com/GaoSSR/Kiri](https://github.com/GaoSSR/Kiri)
+> - 💡 **产品灵感溯源**：同时感谢 [port-whisperer](https://github.com/LarsenCundric/port-whisperer) 项目为本地端口可视化带来的优秀理念。
 
 <p align="center">
   <img src="assets/readme/launchpad-overview.png" alt="Kiri Launchpad 启动台全景预览" width="960" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
@@ -116,6 +125,18 @@ ports logs <port|pid> -f
 - 本机实际运行的配置与端口流水（`kiri_services.json`、`port_aliases.json`）已被 `.gitignore` 彻底物理隔离，绝不上传云端；
 - 开源开箱统一由 `kiri_services.template.json` 提供纯净标准示例；
 - 绝无任何个人绝对磁盘路径、API Key 或密钥残留。
+
+---
+
+## 🙏 开源溯源与致谢 (Upstream Origin & Acknowledgements)
+
+本项目遵循 Apache-2.0 开源协议，特此向以下优秀开源项目与创作者致以崇高敬意：
+
+1. **[GaoSSR/Kiri](https://github.com/GaoSSR/Kiri)**（原作者：[@GaoSSR](https://github.com/GaoSSR)）：
+   - Kiri 原创 Rust 高性能端口检测 CLI 工具，提供了出色的端口扫描算法架构与终端输出美学基石；
+   - 本项目（`Kekeyo/kiri`）在其内核基础之上，拓展了现代化的 Kiri Launchpad Web 控制台、服务四键生命周期管控、文件夹折叠药丸体系与物理文件模式。
+2. **[port-whisperer](https://github.com/LarsenCundric/port-whisperer)**：
+   - 启发了“让本地开发端口更容易被看见、理解和清理”的产品理念。
 
 ---
 

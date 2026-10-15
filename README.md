@@ -21,7 +21,16 @@
   <img alt="Web Dashboard" src="https://img.shields.io/badge/Dashboard-Web%20GUI-blue" />
   <img alt="Core" src="https://img.shields.io/badge/Engine-Python%20%7C%20Rust-orange" />
   <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-purple" />
+  <a href="https://github.com/GaoSSR/Kiri"><img alt="Upstream: GaoSSR/Kiri" src="https://img.shields.io/badge/Upstream-GaoSSR%2FKiri-blue?logo=github" /></a>
 </p>
+
+> [!NOTE]
+> **Upstream Origin & Attribution**:
+> This project is a major enhancement built upon **[GaoSSR/Kiri](https://github.com/GaoSSR/Kiri)** originally created by **[@GaoSSR](https://github.com/GaoSSR)**.
+> On top of its high-performance Rust port inspection engine, this repository introduces the **Kiri Launchpad Web Dashboard**, **Service Lifecycle Controls**, **Folder Card Grouping with Drag-Out Ungrouping**, **Win32 Kernel-Level Process CWD Resolution**, and **Physical "File Mode" with Directory Opus Integration**.
+>
+> - 🔗 **Upstream Original Repository**: [https://github.com/GaoSSR/Kiri](https://github.com/GaoSSR/Kiri)
+> - 💡 **Inspiration**: Special thanks to [port-whisperer](https://github.com/LarsenCundric/port-whisperer).
 
 <p align="center">
   <img src="assets/readme/launchpad-overview.png" alt="Kiri Launchpad Overview" width="960" style="border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,0.12);" />
@@ -115,6 +124,18 @@ ports logs <port|pid> -f
 This project strictly adheres to open-source privacy standards:
 - Local runtime databases (`kiri_services.json`, `port_aliases.json`) are completely excluded via `.gitignore`;
 - Zero personal machine paths, credentials, or private project directories committed.
+
+---
+
+## 🙏 Upstream Origin & Acknowledgements
+
+This project is licensed under Apache-2.0 and extends deep gratitude to:
+
+1. **[GaoSSR/Kiri](https://github.com/GaoSSR/Kiri)** (Author: [@GaoSSR](https://github.com/GaoSSR)):
+   - The original high-performance Rust port inspection CLI engine that laid the technical and aesthetic foundation for developer port management;
+   - This repository (`Kekeyo/kiri`) extends and complements the core engine with a modern Web Launchpad GUI, service controls, folder card bundling, and native Windows integration.
+2. **[port-whisperer](https://github.com/LarsenCundric/port-whisperer)**:
+   - For early pioneering inspiration on developer port visibility and process lifecycle management.
 
 ---
 
