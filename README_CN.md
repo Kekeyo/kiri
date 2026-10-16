@@ -37,6 +37,35 @@
 </p>
 
 ---
+## ⚡ 极速开箱使用 (Quick Start)
+
+### 方式一：Windows 一键双击直达（推荐）
+直接双击根目录下的批处理脚本：
+```bash
+双击打开Kiri.bat
+```
+脚本将自动检测环境、启动轻量服务守护进程并在浏览器中打开控制台：
+👉 **http://127.0.0.1:7788/**
+
+### 方式二：Python 启动
+```bash
+# 启动控制台守护服务
+python kiri_web.py
+
+# 静默后台启动（不自动弹窗浏览器）
+python kiri_web.py --no-browser
+```
+
+### 方式三：Rust 原生 CLI 命令行模式
+如果您只需要在纯命令行终端下查看端口与日志：
+```bash
+cargo run --release -- ports
+# 或者已安装全局命令
+ports
+ports logs <port|pid> -f
+```
+
+---
 
 ## ✨ 核心特性概览 (Key Features)
 
@@ -71,35 +100,7 @@
 
 ---
 
-## ⚡ 极速开箱使用 (Quick Start)
 
-### 方式一：Windows 一键双击直达（推荐）
-直接双击根目录下的批处理脚本：
-```bash
-双击打开Kiri.bat
-```
-脚本将自动检测环境、启动轻量服务守护进程并在浏览器中打开控制台：
-👉 **http://127.0.0.1:7788/**
-
-### 方式二：Python 启动
-```bash
-# 启动控制台守护服务
-python kiri_web.py
-
-# 静默后台启动（不自动弹窗浏览器）
-python kiri_web.py --no-browser
-```
-
-### 方式三：Rust 原生 CLI 命令行模式
-如果您只需要在纯命令行终端下查看端口与日志：
-```bash
-cargo run --release -- ports
-# 或者已安装全局命令
-ports
-ports logs <port|pid> -f
-```
-
----
 
 ## 🏗️ 目录结构 (Repository Structure)
 
